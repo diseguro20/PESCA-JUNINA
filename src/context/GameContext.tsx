@@ -177,7 +177,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setWallet(docSnap.data() as Wallet);
       }
       setLoading(false);
-    }, () => setLoading(false));
+    }, (error) => {
+      console.error("Erro ao escutar carteira:", error);
+      setLoading(false);
+    });
 
     // 2. Escuta do Histórico de Partidas
     const roundsRef = collection(db, 'gameRounds');
@@ -193,6 +196,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items.push({ id: d.id, ...d.data() } as GameRound);
       });
       setHistory(items);
+    }, (error) => {
+      console.error("Erro ao escutar rodadas (provável falta de índice composto):", error);
     });
 
     // 3. Escuta dos Depósitos do Usuário
@@ -208,6 +213,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items.push({ id: d.id, ...d.data() } as Deposit);
       });
       setDeposits(items);
+    }, (error) => {
+      console.error("Erro ao escutar depósitos (provável falta de índice composto):", error);
     });
 
     // 4. Escuta dos Saques do Usuário
@@ -223,6 +230,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items.push({ id: d.id, ...d.data() } as Withdrawal);
       });
       setWithdrawals(items);
+    }, (error) => {
+      console.error("Erro ao escutar saques (provável falta de índice composto):", error);
     });
 
     // 5. Escuta de Rankings Globais
@@ -234,6 +243,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items.push({ uid: d.id, ...d.data() });
       });
       setRankings(items);
+    }, (error) => {
+      console.error("Erro ao escutar rankings:", error);
     });
 
     // 6. Escuta de Multiplicadores e Configurações Globais
@@ -244,6 +255,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setMinBet(data.minBet || 1.00);
         setMaxBet(data.maxBet || 500.00);
       }
+    }, (error) => {
+      console.error("Erro ao escutar configurações:", error);
     });
 
     const multRef = collection(db, 'multipliers');
@@ -254,6 +267,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items.push(d.data() as Multiplier);
       });
       if (items.length > 0) setMultipliers(items);
+    }, (error) => {
+      console.error("Erro ao escutar multiplicadores:", error);
     });
 
     // Escutas administrativas exclusivas
@@ -269,6 +284,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           items.push({ id: d.id, ...d.data() } as AdminLog);
         });
         setAdminLogs(items);
+      }, (error) => {
+        console.error("Erro ao escutar logs de admin:", error);
       });
 
       const usersRef = collection(db, 'users');
@@ -278,6 +295,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           items.push({ uid: d.id, ...d.data() });
         });
         setUsersList(items);
+      }, (error) => {
+        console.error("Erro ao escutar lista de usuários:", error);
       });
     }
 
