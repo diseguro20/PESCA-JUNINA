@@ -22,7 +22,7 @@ export interface MockDbData {
     uid: string;
     email: string;
     amount: number;
-    status: 'pending' | 'approved' | 'rejected';
+    status: 'pending' | 'approved' | 'rejected' | 'paid' | 'expired' | 'refunded';
     receiptUrl?: string;
     createdAt: string;
     updatedAt: string;
@@ -34,6 +34,10 @@ export interface MockDbData {
     amount: number;
     status: 'pending' | 'approved' | 'rejected';
     pixKey?: string;
+    pixKeyType?: 'document' | 'email' | 'phone_number' | 'aleatory';
+    recipientName?: string;
+    recipientDocument?: string;
+    payoutId?: string;
     createdAt: string;
     updatedAt: string;
   }>;

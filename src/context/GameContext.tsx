@@ -36,7 +36,7 @@ export interface Deposit {
   uid: string;
   email: string;
   amount: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid' | 'expired' | 'refunded';
   receiptUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -49,6 +49,10 @@ export interface Withdrawal {
   amount: number;
   status: 'pending' | 'approved' | 'rejected';
   pixKey?: string;
+  pixKeyType?: 'document' | 'email' | 'phone_number' | 'aleatory';
+  recipientName?: string;
+  recipientDocument?: string;
+  payoutId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,7 +87,13 @@ interface GameContextType {
   loading: boolean;
   playFishingRound: (betAmount: number) => Promise<any>;
   createDepositRequest: (amount: number, receiptUrl?: string) => Promise<any>;
-  createWithdrawalRequest: (amount: number, pixKey: string) => Promise<void>;
+  createWithdrawalRequest: (
+    amount: number,
+    pixKey: string,
+    pixKeyType: string,
+    recipientName: string,
+    recipientDocument: string
+  ) => Promise<void>;
   // Métodos Admin
   approveDeposit: (depositId: string) => Promise<void>;
   rejectDeposit: (depositId: string) => Promise<void>;
@@ -332,7 +342,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Solicitar Saque
-  const createWithdrawalRequest = async (amount: number, pixKey: string) => {
+  const createWithdrawalRequest = async (
+    amount: number,
+    pixKey: string,
+    pixKeyType: string,
+    recipientName: string,
+    recipientDocument: string
+  ) => {
     if (!user) throw new Error("Usuário não autenticado");
     if (amount <= 0) throw new Error("Valor inválido");
     if (!wallet || wallet.balance < amount) throw new Error("Saldo disponível insuficiente");
@@ -340,7 +356,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await fetch('/api/wallet/withdraw', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: user.uid, amount, pixKey })
+      body: JSON.stringify({ 
+        uid: user.uid, 
+        amount, 
+        pixKey, 
+        pixKeyType, 
+        recipientName, 
+        recipientDocument 
+      })
     });
 
     const data = await res.json();

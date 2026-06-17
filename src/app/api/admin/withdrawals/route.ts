@@ -40,11 +40,19 @@ export async function POST(req: Request) {
 
       // Processar saque com simulação
       if (action === 'approve') {
-        const payoutRes = await executePixPayout(withdrawal.amount, withdrawal.pixKey || '');
+        const payoutRes = await executePixPayout(
+          withdrawal.amount,
+          withdrawal.pixKey || '',
+          withdrawal.recipientName || '',
+          withdrawal.recipientDocument || '',
+          withdrawal.pixKeyType || 'aleatory',
+          withdrawalId
+        );
         if (!payoutRes.success) {
           return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela simulação do gateway.' }, { status: 500 });
         }
         withdrawal.status = 'approved';
+        withdrawal.payoutId = payoutRes.id;
         userWallet.lockedBalance = Number((userWallet.lockedBalance - withdrawal.amount).toFixed(2));
       } else {
         withdrawal.status = 'rejected';
@@ -93,12 +101,21 @@ export async function POST(req: Request) {
     }
 
     // 1. Se for aprovação, executa o payout externo PRIMEIRAMENTE antes de alterar o banco de dados
+    let externalPayoutId = '';
     if (action === 'approve') {
       try {
-        const payoutRes = await executePixPayout(withdrawalData.amount, withdrawalData.pixKey || '');
+        const payoutRes = await executePixPayout(
+          withdrawalData.amount,
+          withdrawalData.pixKey || '',
+          withdrawalData.recipientName || '',
+          withdrawalData.recipientDocument || '',
+          withdrawalData.pixKeyType || 'aleatory',
+          withdrawalId
+        );
         if (!payoutRes.success) {
           return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela TriboPay.' }, { status: 500 });
         }
+        externalPayoutId = payoutRes.id;
       } catch (payoutError: any) {
         return NextResponse.json({ error: `Falha na transferência Pix: ${payoutError.message || 'Erro de comunicação com a TriboPay'}` }, { status: 500 });
       }
@@ -117,6 +134,7 @@ export async function POST(req: Request) {
       if (action === 'approve') {
         transaction.update(withdrawalDocRef, {
           status: 'approved',
+          payoutId: externalPayoutId,
           updatedAt
         });
 

@@ -4,10 +4,10 @@ import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 
 export async function POST(req: Request) {
   try {
-    const { uid, amount, pixKey } = await req.json();
+    const { uid, amount, pixKey, pixKeyType, recipientName, recipientDocument } = await req.json();
 
-    if (!uid || amount === undefined || !pixKey) {
-      return NextResponse.json({ error: 'Campos uid, amount e pixKey são obrigatórios' }, { status: 400 });
+    if (!uid || amount === undefined || !pixKey || !pixKeyType || !recipientName || !recipientDocument) {
+      return NextResponse.json({ error: 'Campos uid, amount, pixKey, pixKeyType, recipientName e recipientDocument são obrigatórios' }, { status: 400 });
     }
 
     if (amount <= 0) {
@@ -45,6 +45,9 @@ export async function POST(req: Request) {
         amount,
         status: 'pending' as const,
         pixKey,
+        pixKeyType,
+        recipientName,
+        recipientDocument,
         createdAt,
         updatedAt: createdAt
       };
@@ -93,13 +96,16 @@ export async function POST(req: Request) {
         updatedAt: createdAt
       });
 
-      // 4. Criar solicitação de saque
+      // 4. Criar solicitação de saque com todos os dados do beneficiário
       transaction.set(withdrawalDocRef, {
         uid,
         email: user.email,
         amount,
         status: 'pending',
         pixKey,
+        pixKeyType,
+        recipientName,
+        recipientDocument,
         createdAt,
         updatedAt: createdAt
       });

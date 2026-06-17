@@ -31,6 +31,9 @@ export default function WalletPage() {
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [pixKey, setPixKey] = useState('');
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientDocument, setRecipientDocument] = useState('');
+  const [pixKeyType, setPixKeyType] = useState<'document' | 'email' | 'phone_number' | 'aleatory'>('document');
   const [depositSuccess, setDepositSuccess] = useState(false);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,8 +124,8 @@ export default function WalletPage() {
       return;
     }
 
-    if (!pixKey) {
-      setError("Por favor, insira uma chave PIX.");
+    if (!pixKey || !recipientName || !recipientDocument) {
+      setError("Por favor, preencha todos os campos do beneficiário.");
       return;
     }
 
@@ -133,10 +136,13 @@ export default function WalletPage() {
 
     setSubmitting(true);
     try {
-      await createWithdrawalRequest(val, pixKey);
+      await createWithdrawalRequest(val, pixKey, pixKeyType, recipientName, recipientDocument);
       setWithdrawSuccess(true);
       setWithdrawAmount('');
       setPixKey('');
+      setRecipientName('');
+      setRecipientDocument('');
+      setPixKeyType('document');
       refreshAllData();
     } catch (err: any) {
       setError(err.message || "Falha ao registrar saque.");
@@ -389,12 +395,54 @@ export default function WalletPage() {
                     </div>
                   </div>
 
-                  {/* Chave PIX */}
+                  {/* Nome do Beneficiário */}
                   <div className="flex flex-col gap-1.5 text-left">
-                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Sua Chave PIX</label>
+                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Nome do Beneficiário</label>
                     <input
                       type="text"
-                      placeholder="CPF, E-mail, Celular..."
+                      placeholder="Nome completo do titular da conta"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      className="w-full py-3 px-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  {/* CPF/CNPJ do Beneficiário */}
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">CPF/CNPJ do Beneficiário</label>
+                    <input
+                      type="text"
+                      placeholder="Apenas números"
+                      value={recipientDocument}
+                      onChange={(e) => setRecipientDocument(e.target.value)}
+                      className="w-full py-3 px-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  {/* Tipo de Chave PIX */}
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Tipo de Chave PIX</label>
+                    <select
+                      value={pixKeyType}
+                      onChange={(e) => setPixKeyType(e.target.value as any)}
+                      className="w-full py-3 px-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
+                      required
+                    >
+                      <option value="document" className="bg-junina-blue-deep text-white">CPF / CNPJ</option>
+                      <option value="email" className="bg-junina-blue-deep text-white">E-mail</option>
+                      <option value="phone_number" className="bg-junina-blue-deep text-white">Celular</option>
+                      <option value="aleatory" className="bg-junina-blue-deep text-white">Chave Aleatória (EVP)</option>
+                    </select>
+                  </div>
+
+                  {/* Chave PIX */}
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Chave PIX</label>
+                    <input
+                      type="text"
+                      placeholder="Digite a chave PIX correspondente"
                       value={pixKey}
                       onChange={(e) => setPixKey(e.target.value)}
                       className="w-full py-3 px-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
