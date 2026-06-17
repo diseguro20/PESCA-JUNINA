@@ -76,7 +76,7 @@ export async function createPixCharge(
   try {
     const targetUrl = 'https://api.tribopay.com.br/api/public/cash/deposits/pix';
     const payload = {
-      amount: amount, // Envia o valor em float/reais diretamente de acordo com o schema (DepositRequest)
+      amount: Math.round(amount * 100), // Converte para centavos (integer) de acordo com o comportamento real da API
       method: 'pix',
       transactionOrigin: 'cashin',
       payer: {
