@@ -19,10 +19,10 @@ function getWeightedMultiplier(multipliers: any[]) {
 // Mapear peixes correspondentes aos multiplicadores
 function getFishDetails(multiplierValue: number) {
   if (multiplierValue === 0) return { name: "Nenhum peixe", color: "gray" };
-  if (multiplierValue === 0.5) return { name: "Peixe Comum", color: "blue" };
-  if (multiplierValue === 1.0) return { name: "Peixe Azul", color: "blue" };
-  if (multiplierValue === 1.5) return { name: "Peixe Vermelho", color: "red" };
-  if (multiplierValue === 2.0) return { name: "Peixe Verde", color: "green" };
+  if (multiplierValue === 0.5) return { name: "Peixe Comum", color: "comum" };
+  if (multiplierValue === 1.0) return { name: "Peixe Azul", color: "azul" };
+  if (multiplierValue === 1.5) return { name: "Peixe Vermelho", color: "vermelho" };
+  if (multiplierValue === 2.0) return { name: "Peixe Verde", color: "verde" };
   if (multiplierValue === 3.0) return { name: "Peixe Roxo", color: "purple" };
   if (multiplierValue === 5.0) return { name: "Peixe Dourado", color: "gold" };
   return { name: "Peixe Lendário de Chapéu de Palha", color: "rainbow" }; // >= 10x

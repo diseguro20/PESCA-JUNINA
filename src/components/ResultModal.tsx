@@ -132,7 +132,6 @@ export const ResultModal: React.FC<ResultModalProps> = ({
                 src={`/images/fish/fish_${fishColor === 'comum' ? 'comum' : fishColor}.png`} 
                 alt={fishType}
                 className="w-28 h-28 object-contain filter drop-shadow-2xl"
-                style={{ mixBlendMode: 'screen' }}
               />
               
               {/* Chapéu de Palha (Apenas se for Lendário >= 10x) */}
@@ -155,7 +154,6 @@ export const ResultModal: React.FC<ResultModalProps> = ({
                 src="/images/fish/trash_boot.png" 
                 alt="Bota Velha"
                 className="w-24 h-24 object-contain filter drop-shadow-lg opacity-85"
-                style={{ mixBlendMode: 'screen' }}
               />
             </div>
           )}
