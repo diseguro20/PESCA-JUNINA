@@ -176,14 +176,14 @@ const DEFAULT_DB: MockDbData = {
     houseEdge: 0.05
   },
   multipliers: [
-    { value: 0, label: "0x - Nada fisgou!", color: "gray", weight: 35 },
-    { value: 0.5, label: "0.5x - Peixinho Comum", color: "blue", weight: 20 },
-    { value: 1, label: "1x - Peixe Azul", color: "blue", weight: 15 },
-    { value: 1.5, label: "1.5x - Peixe Vermelho", color: "blue", weight: 10 },
-    { value: 2, label: "2x - Peixe Verde", color: "green", weight: 8 },
-    { value: 3, label: "3x - Peixe Roxo", color: "purple", weight: 6 },
-    { value: 5, label: "5x - Peixe Dourado", color: "gold", weight: 4 },
-    { value: 10, label: "10x - Peixe Lendário de Chapéu de Palha!", color: "rainbow", weight: 2 }
+    { value: 0, label: "0x - Nada fisgou!", color: "gray", weight: 55 },
+    { value: 0.5, label: "0.5x - Peixinho Comum", color: "blue", weight: 25 },
+    { value: 1, label: "1x - Peixe Azul", color: "blue", weight: 12 },
+    { value: 1.5, label: "1.5x - Peixe Vermelho", color: "blue", weight: 5 },
+    { value: 2, label: "2x - Peixe Verde", color: "green", weight: 2 },
+    { value: 3, label: "3x - Peixe Roxo", color: "purple", weight: 0.8 },
+    { value: 5, label: "5x - Peixe Dourado", color: "gold", weight: 0.1 },
+    { value: 10, label: "10x - Peixe Lendário de Chapéu de Palha!", color: "rainbow", weight: 0.1 }
   ]
 };
 

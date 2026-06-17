@@ -155,14 +155,14 @@ export async function POST(req: Request) {
       if (multipliersList.length === 0) {
         // Fallback se não configurado
         multipliersList = [
-          { value: 0, label: "0x", weight: 35 },
-          { value: 0.5, label: "0.5x", weight: 20 },
-          { value: 1, label: "1x", weight: 15 },
-          { value: 1.5, label: "1.5x", weight: 10 },
-          { value: 2, label: "2x", weight: 8 },
-          { value: 3, label: "3x", weight: 6 },
-          { value: 5, label: "5x", weight: 4 },
-          { value: 10, label: "10x", weight: 2 }
+          { value: 0, label: "0x", weight: 55 },
+          { value: 0.5, label: "0.5x", weight: 25 },
+          { value: 1, label: "1x", weight: 12 },
+          { value: 1.5, label: "1.5x", weight: 5 },
+          { value: 2, label: "2x", weight: 2 },
+          { value: 3, label: "3x", weight: 0.8 },
+          { value: 5, label: "5x", weight: 0.1 },
+          { value: 10, label: "10x", weight: 0.1 }
         ];
       }
 
