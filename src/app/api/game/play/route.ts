@@ -118,8 +118,25 @@ export async function POST(req: Request) {
     const settingsDocRef = adminDb.collection('settings').doc('game');
     const rankingDocRef = adminDb.collection('rankings').doc(uid);
 
+    // 1. Buscar multiplicadores cadastrados no Firestore (fora da transação para reduzir contenção e evitar erro de read-after-write)
+    const multSnap = await adminDb.collection('multipliers').orderBy('value', 'asc').get();
+    let multipliersList = multSnap.docs.map((doc: any) => doc.data());
+    
+    if (multipliersList.length === 0) {
+      multipliersList = [
+        { value: 0, label: "0x", weight: 55 },
+        { value: 0.5, label: "0.5x", weight: 25 },
+        { value: 1, label: "1x", weight: 12 },
+        { value: 1.5, label: "1.5x", weight: 5 },
+        { value: 2, label: "2x", weight: 2 },
+        { value: 3, label: "3x", weight: 0.8 },
+        { value: 5, label: "5x", weight: 0.1 },
+        { value: 10, label: "10x", weight: 0.1 }
+      ];
+    }
+
     const result = await adminDb.runTransaction(async (transaction: any) => {
-      // 1. Carregar perfil do usuário
+      // 2. Carregar perfil do usuário
       const userSnap = await transaction.get(userDocRef);
       if (!userSnap.exists) {
         throw new Error('Usuário não cadastrado');
@@ -129,16 +146,19 @@ export async function POST(req: Request) {
         throw new Error('Sua conta está bloqueada ou em análise.');
       }
 
-      // 2. Carregar carteira
+      // 3. Carregar carteira
       const walletSnap = await transaction.get(walletDocRef);
       if (!walletSnap.exists) {
         throw new Error('Carteira não encontrada');
       }
       const wallet = walletSnap.data()!;
 
-      // 3. Carregar configurações e multiplicadores
+      // 4. Carregar configurações
       const settingsSnap = await transaction.get(settingsDocRef);
       const settings = settingsSnap.exists ? settingsSnap.data()! : { minBet: 1.00, maxBet: 500.00 };
+
+      // 5. Carregar ranking (TODAS AS LEITURAS DEVEM OCORRER AQUI ANTES DE QUALQUER ESCRITA)
+      const rankingSnap = await transaction.get(rankingDocRef);
 
       if (betAmount < settings.minBet || betAmount > settings.maxBet) {
         throw new Error(`Aposta deve estar entre R$ ${settings.minBet.toFixed(2)} e R$ ${settings.maxBet.toFixed(2)}`);
@@ -148,25 +168,7 @@ export async function POST(req: Request) {
         throw new Error('Saldo insuficiente!');
       }
 
-      // 4. Buscar multiplicadores cadastrados no Firestore
-      const multSnap = await adminDb.collection('multipliers').orderBy('value', 'asc').get();
-      let multipliersList = multSnap.docs.map((doc: any) => doc.data());
-      
-      if (multipliersList.length === 0) {
-        // Fallback se não configurado
-        multipliersList = [
-          { value: 0, label: "0x", weight: 55 },
-          { value: 0.5, label: "0.5x", weight: 25 },
-          { value: 1, label: "1x", weight: 12 },
-          { value: 1.5, label: "1.5x", weight: 5 },
-          { value: 2, label: "2x", weight: 2 },
-          { value: 3, label: "3x", weight: 0.8 },
-          { value: 5, label: "5x", weight: 0.1 },
-          { value: 10, label: "10x", weight: 0.1 }
-        ];
-      }
-
-      // 5. Sortear
+      // 6. Sortear
       const chosenMultiplier = getWeightedMultiplier(multipliersList);
       const fish = getFishDetails(chosenMultiplier.value);
 
@@ -174,13 +176,13 @@ export async function POST(req: Request) {
       const previousBalance = wallet.balance;
       const newBalance = Number((previousBalance - betAmount + winAmount).toFixed(2));
 
-      // 6. Atualizar Carteira
+      // 7. Atualizar Carteira (Primeiro Write)
       transaction.update(walletDocRef, {
         balance: newBalance,
         updatedAt: new Date().toISOString()
       });
 
-      // 7. Criar rodada de jogo
+      // 8. Criar rodada de jogo (Segundo Write)
       const roundRef = adminDb.collection('gameRounds').doc();
       const roundData = {
         uid,
@@ -193,8 +195,7 @@ export async function POST(req: Request) {
       };
       transaction.set(roundRef, roundData);
 
-      // 8. Atualizar Rankings
-      const rankingSnap = await transaction.get(rankingDocRef);
+      // 9. Atualizar Rankings (Terceiro Write)
       if (rankingSnap.exists) {
         const ranking = rankingSnap.data()!;
         const updates: any = {

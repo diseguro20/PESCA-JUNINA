@@ -6,14 +6,20 @@ interface Fish {
   id: number;
   type: string;
   color: string;
-  y: number; // Porcentagem de profundidade (30% a 85%)
+  x: number; // Posição horizontal em % (substitui o offset)
+  y: number; // Posição vertical em %
   scale: number; // Tamanho
-  speed: number; // Velocidade do nado
-  leftToRight: boolean; // Direção
-  offset: number; // Posição horizontal inicial/atual
+  speedX: number; // Velocidade horizontal base
+  speedY: number; // Velocidade vertical atual
+  targetY: number; // Altura alvo vertical para nado
+  leftToRight: boolean; // Direção desejada
+  currentScaleX: number; // Escala X atual para giro 3D suave (1 a -1)
   depth: 'shallow' | 'medium' | 'deep';
   hasHat?: boolean;
   wiggleSpeed: number; // Velocidade do bater de cauda
+  swimSpeedFactor: number; // Fator de velocidade atual (aceleração/glide)
+  changeTargetTimer: number; // Contagem regressiva para novo alvo vertical
+  wigglePhase: number; // Fase para a oscilação vertical
 }
 
 interface Bubble {
@@ -177,18 +183,31 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       if (depth === 'shallow') scale *= 0.8;
       if (depth === 'deep') scale *= 1.3;
 
+      let minY = 28, maxY = 80;
+      if (depth === 'shallow') { minY = 28; maxY = 45; }
+      else if (depth === 'medium') { minY = 45; maxY = 65; }
+      else if (depth === 'deep') { minY = 65; maxY = 82; }
+
+      const y = minY + Math.random() * (maxY - minY);
+
       return {
         id: i,
         type,
         color: type,
-        y: 28 + Math.random() * 52, // Altura vertical do nado
+        x: Math.random() * 100,
+        y,
         scale,
-        speed: 0.04 + Math.random() * 0.07,
+        speedX: 0.03 + Math.random() * 0.04,
+        speedY: 0,
+        targetY: y,
         leftToRight: Math.random() > 0.5,
-        offset: Math.random() * 100,
+        currentScaleX: Math.random() > 0.5 ? 1 : -1,
         depth,
         hasHat: type === 'rainbow' || (type === 'gold' && Math.random() > 0.5),
-        wiggleSpeed: 0.15 + Math.random() * 0.15
+        wiggleSpeed: 0.15 + Math.random() * 0.15,
+        swimSpeedFactor: 1.0,
+        changeTargetTimer: 50 + Math.floor(Math.random() * 150),
+        wigglePhase: Math.random() * Math.PI * 2
       };
     });
     setFishList(generatedFish);
@@ -203,21 +222,60 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       // Atualizar peixes
       setFishList((prevList) =>
         prevList.map((fish) => {
-          let newOffset = fish.offset + (fish.leftToRight ? fish.speed : -fish.speed);
+          // 1. Atualizar timer de mudança de direção vertical
+          let newTimer = fish.changeTargetTimer - 1;
+          let newTargetY = fish.targetY;
+          if (newTimer <= 0) {
+            let minY = 28, maxY = 80;
+            if (fish.depth === 'shallow') { minY = 28; maxY = 45; }
+            else if (fish.depth === 'medium') { minY = 45; maxY = 65; }
+            else if (fish.depth === 'deep') { minY = 65; maxY = 82; }
+            
+            newTargetY = minY + Math.random() * (maxY - minY);
+            newTimer = 180 + Math.floor(Math.random() * 240); // 3 a 7 segundos em 60fps
+          }
+
+          // 2. Movimento vertical orgânico em direção ao targetY
+          const diffY = newTargetY - fish.y;
+          let newSpeedY = fish.speedY + (diffY * 0.002 - fish.speedY * 0.08);
+          let newY = fish.y + newSpeedY;
+
+          // Adicionar uma oscilação senoidal sutil
+          const time = Date.now();
+          const wobble = Math.sin(time * 0.003 + fish.wigglePhase) * 0.05;
+          newY += wobble;
+
+          // 3. Movimento horizontal com impulsos e glides
+          let newSpeedFactor = fish.swimSpeedFactor;
+          if (Math.random() < 0.005) {
+            newSpeedFactor = 0.5 + Math.random() * 1.0;
+          }
+          newSpeedFactor += (1.0 - newSpeedFactor) * 0.01;
+
+          let newX = fish.x + (fish.leftToRight ? fish.speedX : -fish.speedX) * newSpeedFactor;
           let newDir = fish.leftToRight;
 
-          if (newOffset > 108) {
-            newOffset = 108;
+          // Curva de retorno suave
+          if (newX > 105 && fish.leftToRight) {
             newDir = false;
-          } else if (newOffset < -18) {
-            newOffset = -18;
+          } else if (newX < -15 && !fish.leftToRight) {
             newDir = true;
           }
 
+          // 4. Giro 3D suave (currentScaleX)
+          const targetScaleX = newDir ? 1 : -1;
+          const newScaleX = fish.currentScaleX + (targetScaleX - fish.currentScaleX) * 0.08;
+
           return {
             ...fish,
-            offset: newOffset,
+            x: newX,
+            y: newY,
+            speedY: newSpeedY,
+            targetY: newTargetY,
+            changeTargetTimer: newTimer,
+            swimSpeedFactor: newSpeedFactor,
             leftToRight: newDir,
+            currentScaleX: newScaleX,
           };
         })
       );
@@ -412,7 +470,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
     }, 22);
   };
 
-  // Renderizar o Peixe com a Imagem Realista Blended
+  // Renderizar o Peixe com a Imagem Realista
   const renderLakeFish = (fish: Fish) => {
     const isLendario = fish.hasHat;
     const fishColorName = fish.color === 'comum' ? 'comum' : fish.color;
@@ -432,14 +490,17 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       dropShadowFilter = "drop-shadow(0 0 8px rgba(236, 72, 153, 0.8))";
     }
 
+    const currentSpeed = Math.max(Math.abs(fish.speedX) * fish.swimSpeedFactor, 0.01);
+    const wiggleDuration = (0.08 / currentSpeed).toFixed(2);
+
     return (
       <div
         key={fish.id}
-        className="absolute pointer-events-none select-none fish-swim-wobble"
+        className="absolute pointer-events-none select-none"
         style={{
           top: `${fish.y}%`,
-          left: `${fish.offset}%`,
-          transform: `scale(${fish.scale}) scaleX(${fish.leftToRight ? 1 : -1})`,
+          left: `${fish.x}%`,
+          transform: `scale(${fish.scale}) scaleX(${fish.currentScaleX})`,
           opacity: fish.depth === 'shallow' ? 0.9 : fish.depth === 'medium' ? 0.55 : 0.22,
           zIndex: fish.depth === 'shallow' ? 4 : fish.depth === 'medium' ? 3 : 2,
           transition: 'opacity 0.6s ease',
@@ -453,13 +514,19 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           </svg>
         </div>
 
-        {/* Peixe Realista Blended */}
-        <div className="relative w-24 h-16">
+        {/* Peixe Realista */}
+        <div 
+          className="relative w-24 h-16"
+          style={{
+            transformOrigin: fish.currentScaleX > 0 ? 'right center' : 'left center',
+            animation: `fishWiggle ${wiggleDuration}s ease-in-out infinite`,
+            animationDelay: `${fish.wigglePhase}s`
+          }}
+        >
           <img
             src={imageSrc}
             alt="Fish"
             className="w-full h-full object-contain"
-            style={{ mixBlendMode: 'screen' }}
             onError={(e) => {
               // Se a imagem falhar, mostra o fallback do SVG antigo
               e.currentTarget.style.display = 'none';
@@ -506,11 +573,28 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   return (
     <div className="w-full h-full flex flex-col relative">
       
-      {/* Estilo local para Vitórias Régias e caustics */}
+      {/* Estilo local para Vitórias Régias, caustics e nado */}
       <style jsx global>{`
         @keyframes waterLiliesSway {
           0% { transform: rotate(-3deg) translateY(0px); }
           100% { transform: rotate(3deg) translateY(2.5px); }
+        }
+        @keyframes fishWiggle {
+          0% {
+            transform: rotate(0deg) skewY(0deg) scaleY(1);
+          }
+          25% {
+            transform: rotate(-3deg) skewY(-5deg) scaleY(0.96);
+          }
+          50% {
+            transform: rotate(0deg) skewY(0deg) scaleY(1);
+          }
+          75% {
+            transform: rotate(3deg) skewY(5deg) scaleY(0.96);
+          }
+          100% {
+            transform: rotate(0deg) skewY(0deg) scaleY(1);
+          }
         }
       `}</style>
 
@@ -660,7 +744,6 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
                 src={`/images/fish/fish_${caughtFishData.fishColor === 'comum' ? 'comum' : caughtFishData.fishColor}.png`}
                 alt="Fisgado"
                 className="w-full h-full object-contain filter drop-shadow-md"
-                style={{ mixBlendMode: 'screen' }}
               />
               {/* Efeito splash na fisgada */}
               <div className="absolute inset-0 bg-blue-300/20 filter blur-xs animate-ping rounded-full scale-150" />
