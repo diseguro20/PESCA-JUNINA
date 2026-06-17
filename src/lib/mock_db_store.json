@@ -1,0 +1,306 @@
+{
+  "users": {
+    "admin-demo-id": {
+      "uid": "admin-demo-id",
+      "name": "Administrador Caipira",
+      "email": "admin@pesca.com",
+      "role": "admin",
+      "status": "active",
+      "createdAt": "2026-06-17T05:19:04.851Z"
+    },
+    "user-demo-id": {
+      "uid": "user-demo-id",
+      "name": "Chico Bento",
+      "email": "chico@pesca.com",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-06-17T05:19:04.851Z"
+    }
+  },
+  "wallets": {
+    "admin-demo-id": {
+      "uid": "admin-demo-id",
+      "balance": 1000,
+      "lockedBalance": 0,
+      "updatedAt": "2026-06-17T05:19:04.851Z"
+    },
+    "user-demo-id": {
+      "uid": "user-demo-id",
+      "balance": 127.5,
+      "lockedBalance": 0,
+      "updatedAt": "2026-06-17T06:03:41.706Z"
+    }
+  },
+  "deposits": [
+    {
+      "id": "dep-1",
+      "uid": "user-demo-id",
+      "email": "chico@pesca.com",
+      "amount": 100,
+      "status": "approved",
+      "receiptUrl": "https://example.com/comprovante1.png",
+      "createdAt": "2026-06-16T05:19:04.851Z",
+      "updatedAt": "2026-06-16T05:19:04.851Z"
+    },
+    {
+      "id": "dep-2",
+      "uid": "user-demo-id",
+      "email": "chico@pesca.com",
+      "amount": 50,
+      "status": "pending",
+      "createdAt": "2026-06-17T05:19:04.851Z",
+      "updatedAt": "2026-06-17T05:19:04.851Z"
+    },
+    {
+      "id": "tp_chg_80fb6wnpl",
+      "uid": "user-demo-id",
+      "email": "chico@pesca.com",
+      "amount": 50,
+      "status": "pending",
+      "receiptUrl": "https://example.com/comprovantes/recibo_8403.png",
+      "qrCodeText": "00020101021126580014br.gov.bcb.pix0136pix-demo@quermesse.com.br52040000530398654050005802BR5925Pesca Online Junina6009Sao Paulo62070503***6304CA12",
+      "qrCodeImage": "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020101021126580014br.gov.bcb.pix0136pix-demo%40quermesse.com.br52040000530398654050005802BR5925Pesca%20Online%20Junina6009Sao%20Paulo62070503***6304CA12",
+      "createdAt": "2026-06-17T06:03:50.547Z",
+      "updatedAt": "2026-06-17T06:03:50.547Z"
+    }
+  ],
+  "withdrawals": [
+    {
+      "id": "wit-1",
+      "uid": "user-demo-id",
+      "email": "chico@pesca.com",
+      "amount": 25,
+      "status": "approved",
+      "pixKey": "chico@pesca.com",
+      "createdAt": "2026-06-16T17:19:04.851Z",
+      "updatedAt": "2026-06-16T17:19:04.851Z"
+    }
+  ],
+  "gameRounds": [
+    {
+      "id": "round-1",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 10,
+      "winAmount": 20,
+      "multiplier": 2,
+      "fishType": "Peixe Verde",
+      "createdAt": "2026-06-17T02:19:04.851Z"
+    },
+    {
+      "id": "round-2",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 0,
+      "multiplier": 0,
+      "fishType": "Nenhum Peixe",
+      "createdAt": "2026-06-17T03:19:04.851Z"
+    },
+    {
+      "id": "round-c992wt5jj",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 7.5,
+      "multiplier": 1.5,
+      "fishType": "Peixe Vermelho",
+      "createdAt": "2026-06-17T05:19:09.169Z"
+    },
+    {
+      "id": "round-6gfwp8kaj",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 0,
+      "multiplier": 0,
+      "fishType": "Nenhum peixe",
+      "createdAt": "2026-06-17T05:19:16.901Z"
+    },
+    {
+      "id": "round-w3y00jpj4",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 0,
+      "multiplier": 0,
+      "fishType": "Nenhum peixe",
+      "createdAt": "2026-06-17T05:19:25.121Z"
+    },
+    {
+      "id": "round-u76ylo3c2",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 5,
+      "multiplier": 1,
+      "fishType": "Peixe Azul",
+      "createdAt": "2026-06-17T05:19:30.303Z"
+    },
+    {
+      "id": "round-fiw50zhm6",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 5,
+      "multiplier": 1,
+      "fishType": "Peixe Azul",
+      "createdAt": "2026-06-17T05:20:08.789Z"
+    },
+    {
+      "id": "round-qva0tdtdi",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 0,
+      "multiplier": 0,
+      "fishType": "Nenhum peixe",
+      "createdAt": "2026-06-17T05:20:47.587Z"
+    },
+    {
+      "id": "round-iip27gmio",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 10,
+      "multiplier": 2,
+      "fishType": "Peixe Verde",
+      "createdAt": "2026-06-17T05:21:02.746Z"
+    },
+    {
+      "id": "round-614synqr2",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 0,
+      "multiplier": 0,
+      "fishType": "Nenhum peixe",
+      "createdAt": "2026-06-17T05:21:12.677Z"
+    },
+    {
+      "id": "round-eje807bli",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 5,
+      "multiplier": 1,
+      "fishType": "Peixe Azul",
+      "createdAt": "2026-06-17T05:29:53.526Z"
+    },
+    {
+      "id": "round-vk9mxsj0u",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 2.5,
+      "multiplier": 0.5,
+      "fishType": "Peixe Comum",
+      "createdAt": "2026-06-17T05:29:58.883Z"
+    },
+    {
+      "id": "round-tx09qws37",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 2.5,
+      "multiplier": 0.5,
+      "fishType": "Peixe Comum",
+      "createdAt": "2026-06-17T05:30:03.337Z"
+    },
+    {
+      "id": "round-qg2m1oj8c",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 5,
+      "multiplier": 1,
+      "fishType": "Peixe Azul",
+      "createdAt": "2026-06-17T05:30:07.800Z"
+    },
+    {
+      "id": "round-ivzz7a6fk",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 2.5,
+      "multiplier": 0.5,
+      "fishType": "Peixe Comum",
+      "createdAt": "2026-06-17T05:30:12.012Z"
+    },
+    {
+      "id": "round-w856m3xpk",
+      "uid": "user-demo-id",
+      "userName": "Chico Bento",
+      "betAmount": 5,
+      "winAmount": 2.5,
+      "multiplier": 0.5,
+      "fishType": "Peixe Comum",
+      "createdAt": "2026-06-17T06:03:41.706Z"
+    }
+  ],
+  "adminLogs": [
+    {
+      "id": "log-1",
+      "adminUid": "admin-demo-id",
+      "adminEmail": "admin@pesca.com",
+      "action": "INICIALIZACAO",
+      "details": "Banco de dados de simulação criado",
+      "createdAt": "2026-06-17T05:19:04.851Z"
+    }
+  ],
+  "settings": {
+    "minBet": 1,
+    "maxBet": 500,
+    "houseEdge": 0.05
+  },
+  "multipliers": [
+    {
+      "value": 0,
+      "label": "0x - Nada fisgou!",
+      "color": "gray",
+      "weight": 35
+    },
+    {
+      "value": 0.5,
+      "label": "0.5x - Peixinho Comum",
+      "color": "blue",
+      "weight": 20
+    },
+    {
+      "value": 1,
+      "label": "1x - Peixe Azul",
+      "color": "blue",
+      "weight": 15
+    },
+    {
+      "value": 1.5,
+      "label": "1.5x - Peixe Vermelho",
+      "color": "blue",
+      "weight": 10
+    },
+    {
+      "value": 2,
+      "label": "2x - Peixe Verde",
+      "color": "green",
+      "weight": 8
+    },
+    {
+      "value": 3,
+      "label": "3x - Peixe Roxo",
+      "color": "purple",
+      "weight": 6
+    },
+    {
+      "value": 5,
+      "label": "5x - Peixe Dourado",
+      "color": "gold",
+      "weight": 4
+    },
+    {
+      "value": 10,
+      "label": "10x - Peixe Lendário de Chapéu de Palha!",
+      "color": "rainbow",
+      "weight": 2
+    }
+  ]
+}

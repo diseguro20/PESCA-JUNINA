@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper para verificar se o usuário é administrador
+    function isAdmin() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Helper para verificar se o usuário está logado e é o dono do documento
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Coleção de usuários (users)
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      // Usuários comuns podem criar seu próprio perfil ou atualizar apenas o nome
+      allow create: if isOwner(uid) && request.resource.data.role == 'user' && request.resource.data.status == 'active';
+      allow update: if isOwner(uid) && 
+        request.resource.data.role == resource.data.role && 
+        request.resource.data.status == resource.data.status;
+      // Apenas admins podem deletar ou alterar perfis gerais
+      allow delete, write: if isAdmin();
+    }
+
+    // Coleção de carteiras (wallets)
+    match /wallets/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // O saldo é alterado apenas pelas funções seguras do backend
+      allow write: if isAdmin();
+    }
+
+    // Coleção de depósitos (deposits)
+    match /deposits/{depositId} {
+      allow read: if (request.auth != null && resource.data.uid == request.auth.uid) || isAdmin();
+      // Permitir que o jogador solicite o depósito com status inicial 'pending'
+      allow create: if request.auth != null && 
+        request.resource.data.uid == request.auth.uid && 
+        request.resource.data.status == 'pending';
+      // Apenas admins aprovam/recusam
+      allow update, delete, write: if isAdmin();
+    }
+
+    // Coleção de saques (withdrawals)
+    match /withdrawals/{withdrawalId} {
+      allow read: if (request.auth != null && resource.data.uid == request.auth.uid) || isAdmin();
+      // Permitir que o jogador solicite o saque com status inicial 'pending'
+      allow create: if request.auth != null && 
+        request.resource.data.uid == request.auth.uid && 
+        request.resource.data.status == 'pending';
+      // Apenas admins aprovam/recusam
+      allow update, delete, write: if isAdmin();
+    }
+
+    // Coleção de rodadas de jogo (gameRounds)
+    match /gameRounds/{roundId} {
+      allow read: if (request.auth != null && resource.data.uid == request.auth.uid) || isAdmin();
+      // Gravado apenas pelo backend
+      allow write: if isAdmin();
+    }
+
+    // Coleção de logs administrativos (adminLogs)
+    match /adminLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Coleção de configurações globais (settings)
+    match /settings/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Coleção de multiplicadores (multipliers)
+    match /multipliers/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Coleção de rankings (rankings)
+    match /rankings/{uid} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+  }
+}
