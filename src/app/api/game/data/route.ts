@@ -105,25 +105,25 @@ export async function GET(req: Request) {
     const walletDoc = await adminDb.collection('wallets').doc(uid).get();
     const wallet = walletDoc.exists ? walletDoc.data() : { uid, balance: 0, lockedBalance: 0 };
 
-    // Buscar históricos do usuário
+    // Buscar históricos do usuário (Removido orderBy para evitar exigência de índices compostos no Firestore, ordenando em memória)
     const roundsSnap = await adminDb.collection('gameRounds')
       .where('uid', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .limit(50)
       .get();
-    const history = roundsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+    let history = roundsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+    history.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    history = history.slice(0, 50);
 
     const depositsSnap = await adminDb.collection('deposits')
       .where('uid', '==', uid)
-      .orderBy('createdAt', 'desc')
       .get();
     const deposits = depositsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+    deposits.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const withdrawalsSnap = await adminDb.collection('withdrawals')
       .where('uid', '==', uid)
-      .orderBy('createdAt', 'desc')
       .get();
     const withdrawals = withdrawalsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+    withdrawals.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Buscar Rankings globais
     const rankingsSnap = await adminDb.collection('rankings')
