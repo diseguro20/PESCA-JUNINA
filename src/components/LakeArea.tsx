@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Anchor, Sparkles, AlertCircle, Volume2, VolumeX, HelpCircle } from 'lucide-react';
+import { Sparkles, Volume2, VolumeX, HelpCircle, AlertCircle } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 
 interface Fish {
@@ -13,6 +13,26 @@ interface Fish {
   offset: number; // Posição horizontal inicial/atual
   depth: 'shallow' | 'medium' | 'deep';
   hasHat?: boolean;
+  wiggleSpeed: number; // Velocidade do bater de cauda
+}
+
+interface Bubble {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
+}
+
+interface Splash {
+  id: number;
+  x: number;
+  y: number; // Coordenadas em pixels
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
 }
 
 interface LakeAreaProps {
@@ -36,13 +56,23 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   const [statusMessage, setStatusMessage] = useState('Escolha o valor e jogue a linha!');
   const [caughtFishData, setCaughtFishData] = useState<any>(null);
   
-  // Elementos do Lago e Física
+  // Elementos do Lago, Partículas e Física
   const [fishList, setFishList] = useState<Fish[]>([]);
+  const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  const [splashes, setSplashes] = useState<Splash[]>([]);
   const lakeRef = useRef<HTMLDivElement>(null);
   const [bobberPos, setBobberPos] = useState({ x: 50, y: 40 }); // Em porcentagem do lago
+  const [bobberTwitch, setBobberTwitch] = useState(false);
+  const [bobberUnder, setBobberUnder] = useState(false);
+  const [rodState, setRodState] = useState<'idle' | 'casting' | 'bending'>('idle');
+
+  // Física de mola (Spring Physics) para a vara de pesca
+  const [rodTip, setRodTip] = useState({ x: 65, y: 95 });
+  const rodTipTarget = useRef({ x: 65, y: 95 });
+  const rodTipVel = useRef({ x: 0, y: 0 });
   
-  // Sons simulados (Web Audio API para não precisar de arquivos externos)
-  const playSound = (type: 'cast' | 'splash' | 'win' | 'fail') => {
+  // Sons sintetizados via Web Audio API (Ricos e Imersivos)
+  const playSound = (type: 'cast' | 'splash' | 'win' | 'fail' | 'bite') => {
     if (!soundEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -54,15 +84,14 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.type = 'triangle';
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(120, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+        osc.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
         osc.start();
-        osc.stop(ctx.currentTime + 0.3);
+        osc.stop(ctx.currentTime + 0.35);
       } else if (type === 'splash') {
-        // Ruído branco para simular água
         const bufferSize = ctx.sampleRate * 0.4;
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -72,23 +101,43 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         const noise = ctx.createBufferSource();
         noise.buffer = buffer;
         const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 400;
+        filter.type = 'lowpass';
+        filter.frequency.value = 500;
+        
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+
         noise.connect(filter);
-        filter.connect(ctx.destination);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
         noise.start();
+      } else if (type === 'bite') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(900, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(180, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
       } else if (type === 'win') {
-        const notes = [261.63, 329.63, 392.00, 523.25]; // Acorde C maior
+        // Sanfona/Acordeon Caipira Caipira (Melodia Junina)
+        const notes = [293.66, 329.63, 392.00, 440.00, 587.33, 659.25]; // D4, E4, G4, A4, D5, E5
         notes.forEach((freq, idx) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.connect(gain);
           gain.connect(ctx.destination);
+          osc.type = 'triangle';
           osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.1);
-          gain.gain.linearRampToValueAtTime(0, ctx.currentTime + idx * 0.1 + 0.3);
-          osc.start(ctx.currentTime + idx * 0.1);
-          osc.stop(ctx.currentTime + idx * 0.1 + 0.3);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.22);
+          osc.start(ctx.currentTime + idx * 0.08);
+          osc.stop(ctx.currentTime + idx * 0.08 + 0.22);
         });
       }
     } catch (e) {
@@ -96,49 +145,72 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
     }
   };
 
-  // 1. Inicializar Peixes Nadando
+  // Criar splash de partículas na água
+  const createSplashParticles = (pctX: number, pctY: number) => {
+    if (!lakeRef.current) return;
+    const w = lakeRef.current.clientWidth;
+    const h = lakeRef.current.clientHeight;
+    const pxX = (pctX * w) / 100;
+    const pxY = (pctY * h) / 100;
+
+    const newSplashes = Array.from({ length: 16 }).map((_, i) => ({
+      id: Math.random() + i,
+      x: pxX,
+      y: pxY,
+      vx: (Math.random() - 0.5) * 4,
+      vy: -3 - Math.random() * 5,
+      size: 3 + Math.random() * 5,
+      opacity: 0.9 + Math.random() * 0.1,
+    }));
+    setSplashes((prev) => [...prev, ...newSplashes]);
+  };
+
+  // 1. Inicializar Peixes
   useEffect(() => {
     const types = ['comum', 'azul', 'vermelho', 'verde', 'purple', 'gold', 'rainbow'];
-    const generatedFish: Fish[] = Array.from({ length: 10 }).map((_, i) => {
+    const generatedFish: Fish[] = Array.from({ length: 12 }).map((_, i) => {
       const type = types[i % types.length]!;
       const depthOptions: Array<'shallow' | 'medium' | 'deep'> = ['shallow', 'medium', 'deep'];
       const depth = depthOptions[i % 3]!;
       
-      let scale = 0.7 + Math.random() * 0.4;
-      if (depth === 'shallow') scale *= 0.7; // Mais profundos parecem maiores ou vice-versa, vamos ajustar
+      let scale = 0.5 + Math.random() * 0.35;
+      if (depth === 'shallow') scale *= 0.8;
       if (depth === 'deep') scale *= 1.3;
 
       return {
         id: i,
         type,
         color: type,
-        y: 25 + Math.random() * 55, // Porcentagem do topo
+        y: 28 + Math.random() * 52, // Altura vertical do nado
         scale,
-        speed: 0.08 + Math.random() * 0.12, // Velocidade por frame
+        speed: 0.04 + Math.random() * 0.07,
         leftToRight: Math.random() > 0.5,
-        offset: Math.random() * 100, // Inicia em posição aleatória
+        offset: Math.random() * 100,
         depth,
-        hasHat: type === 'rainbow', // O Lendário ganha o chapéu de palha
+        hasHat: type === 'rainbow' || (type === 'gold' && Math.random() > 0.5),
+        wiggleSpeed: 0.15 + Math.random() * 0.15
       };
     });
     setFishList(generatedFish);
   }, []);
 
-  // 2. Loop de animação dos peixes (Natação fluida)
+  // 2. Loop de animação dos peixes, mola da vara e partículas
   useEffect(() => {
     let animId: number;
+    let bubbleCounter = 0;
+
     const updatePhysics = () => {
+      // Atualizar peixes
       setFishList((prevList) =>
         prevList.map((fish) => {
           let newOffset = fish.offset + (fish.leftToRight ? fish.speed : -fish.speed);
           let newDir = fish.leftToRight;
 
-          // Se passar da borda do lago, vira e muda direção
-          if (newOffset > 105) {
-            newOffset = 105;
+          if (newOffset > 108) {
+            newOffset = 108;
             newDir = false;
-          } else if (newOffset < -15) {
-            newOffset = -15;
+          } else if (newOffset < -18) {
+            newOffset = -18;
             newDir = true;
           }
 
@@ -149,6 +221,66 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           };
         })
       );
+
+      // Atualizar física de mola (Spring) da vara de pesca
+      setRodTip((prevTip) => {
+        const k = 0.075; // Rigidez da mola
+        const damping = 0.72; // Atrito/amortecimento
+        const fX = (rodTipTarget.current.x - prevTip.x) * k;
+        const fY = (rodTipTarget.current.y - prevTip.y) * k;
+        
+        rodTipVel.current.x = (rodTipVel.current.x + fX) * damping;
+        rodTipVel.current.y = (rodTipVel.current.y + fY) * damping;
+        
+        let nextX = prevTip.x + rodTipVel.current.x;
+        let nextY = prevTip.y + rodTipVel.current.y;
+
+        // Jitter de tensão caso o peixe esteja fisgado
+        if (rodTipTarget.current.x === 42) {
+          nextX += (Math.random() - 0.5) * 1.8;
+          nextY += (Math.random() - 0.5) * 1.8;
+        }
+
+        return { x: nextX, y: nextY };
+      });
+
+      // Atualizar partículas de Splash
+      setSplashes((prevSplashes) =>
+        prevSplashes
+          .map((s) => ({
+            ...s,
+            x: s.x + s.vx,
+            y: s.y + s.vy,
+            vy: s.vy + 0.15, // Gravidade
+            opacity: s.opacity - 0.025,
+          }))
+          .filter((s) => s.opacity > 0)
+      );
+
+      // Atualizar bolhas de ar
+      setBubbles((prevBubbles) => {
+        const updated = prevBubbles
+          .map((b) => ({
+            ...b,
+            y: b.y - b.speed,
+            x: b.x + Math.sin(b.y * 0.06) * 0.25 // Ondulação sutil
+          }))
+          .filter((b) => b.y > -5);
+
+        // Ocasionalmente spawnar nova bolha
+        if (Math.random() < 0.055 && updated.length < 28) {
+          updated.push({
+            id: bubbleCounter++,
+            x: 3 + Math.random() * 94,
+            y: 105,
+            size: 2.5 + Math.random() * 4.5,
+            speed: 0.35 + Math.random() * 0.55,
+            opacity: 0.15 + Math.random() * 0.25
+          });
+        }
+        return updated;
+      });
+
       animId = requestAnimationFrame(updatePhysics);
     };
 
@@ -156,63 +288,95 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
     return () => cancelAnimationFrame(animId);
   }, []);
 
-  // 3. Função Principal: Lançar Vara de Pesca (Fluxo da Rodada)
+  // Controlar o target da física da vara baseado no estado
+  useEffect(() => {
+    if (rodState === 'casting') {
+      rodTipTarget.current = { x: 85, y: 65 }; // Verga para trás
+    } else if (rodState === 'bending') {
+      rodTipTarget.current = { x: 42, y: 132 }; // Curva forte com puxão de peixe
+    } else {
+      rodTipTarget.current = { x: 65, y: 95 }; // Repouso
+    }
+  }, [rodState]);
+
+  // 3. Lançar Vara de Pesca (Fluxo da Rodada)
   const handleCastFishingLine = async () => {
     if (isProcessing || gameStatus !== 'waiting') return;
 
     setIsProcessing(true);
     setGameStatus('preparing');
-    setStatusMessage('Preparando lançamento...');
+    setRodState('casting');
+    setStatusMessage('Preparando arremesso caipira...');
     playSound('cast');
 
-    // Mover a boia de volta para a vara antes de lançar
-    setBobberPos({ x: 50, y: 100 });
+    // Boia na ponta da vara
+    setBobberPos({ x: 80, y: 90 });
+    setBobberUnder(false);
+    setBobberTwitch(false);
 
-    // Animar arremesso da boia
+    // Animar arremesso balístico
     let progress = 0;
-    const targetX = 35 + Math.random() * 30; // Alvo aleatório no lago
-    const targetY = 30 + Math.random() * 25;
+    const targetX = 22 + Math.random() * 56;
+    const targetY = 32 + Math.random() * 26;
 
     const castInterval = setInterval(() => {
-      progress += 0.05;
+      progress += 0.038;
       if (progress >= 1) {
         clearInterval(castInterval);
         setBobberPos({ x: targetX, y: targetY });
         setGameStatus('fishing');
-        setStatusMessage('Pescando... Aguarde o peixe fisgar!');
+        setRodState('idle');
+        setStatusMessage('Pescando... Aguarde o puxão da boia!');
+        createSplashParticles(targetX, targetY);
         playSound('splash');
         
-        // Iniciar suspense do jogo chamando o backend
+        // Iniciar chamada ao backend
         triggerBackendRoll(targetX, targetY);
       } else {
-        // Trajetória parabólica
-        const currentX = 50 + (targetX - 50) * progress;
-        const currentY = 100 - (100 - targetY) * progress - Math.sin(progress * Math.PI) * 25;
+        // Trajetória balística parabólica com gravidade
+        const currentX = 80 - (80 - targetX) * progress;
+        const currentY = 90 - (90 - targetY) * progress - Math.sin(progress * Math.PI) * 38;
         setBobberPos({ x: currentX, y: currentY });
       }
-    }, 25);
+    }, 20);
   };
 
   const triggerBackendRoll = async (bX: number, bY: number) => {
     try {
-      // Chamar o backend seguro
       const result = await playFishingRound(betAmount);
       
-      // Suspense de 2.5 segundos para dar clima de quermesse
+      // Sequência de suspense com puxões na boia
       setTimeout(() => {
-        setCaughtFishData(result);
-        setGameStatus('caught');
-        setStatusMessage('FISGOU! Recolhendo a linha...');
-        playSound('splash');
+        setBobberTwitch(true);
+        playSound('bite');
+        setTimeout(() => setBobberTwitch(false), 180);
+      }, 1100);
 
-        // Animar recolhimento do peixe em direção ao pescador
-        animateReeling(result, bX, bY);
-      }, 2500);
+      setTimeout(() => {
+        setBobberTwitch(true);
+        playSound('bite');
+        setTimeout(() => {
+          setBobberTwitch(false);
+          // Fisgou! Boia afunda
+          setBobberUnder(true);
+          setRodState('bending');
+          setGameStatus('caught');
+          setCaughtFishData(result);
+          setStatusMessage('FISGOU! Puxe a linha sô!');
+          createSplashParticles(bX, bY);
+          playSound('splash');
+          
+          // Animar recolhimento com inércia
+          animateReeling(result, bX, bY);
+        }, 300);
+      }, 2300);
 
     } catch (error: any) {
-      // Se der erro (ex: saldo insuficiente), aborta e avisa
       setGameStatus('waiting');
+      setRodState('idle');
       setIsProcessing(false);
+      setBobberUnder(false);
+      setBobberTwitch(false);
       setStatusMessage(error.message || 'Erro ao pescar.');
     }
   };
@@ -220,14 +384,15 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   const animateReeling = (result: any, startX: number, startY: number) => {
     let progress = 0;
     const reelInterval = setInterval(() => {
-      progress += 0.08;
+      progress += 0.055; // Velocidade do recolhimento
       if (progress >= 1) {
         clearInterval(reelInterval);
         setGameStatus('waiting');
+        setRodState('idle');
         setIsProcessing(false);
+        setBobberUnder(false);
         setStatusMessage('Escolha o valor e jogue a linha!');
         
-        // Notificar o pai sobre o resultado
         onRoundComplete({
           winAmount: result.winAmount,
           multiplier: result.multiplier,
@@ -239,220 +404,365 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           playSound('win');
         }
       } else {
-        // Mover boia e peixe de volta para a vara (em linha reta rápida)
-        const currentX = startX + (50 - startX) * progress;
-        const currentY = startY + (90 - startY) * progress;
+        // Recolher a boia em direção ao topo da vara
+        const currentX = startX + (80 - startX) * progress;
+        const currentY = startY + (85 - startY) * progress;
         setBobberPos({ x: currentX, y: currentY });
       }
-    }, 30);
+    }, 22);
   };
 
-  // Renderizar o Peixe Vetorial no lago
+  // Renderizar o Peixe com a Imagem Realista Blended
   const renderLakeFish = (fish: Fish) => {
     const isLendario = fish.hasHat;
-    let colorHex = "#3b82f6";
-    if (fish.color === 'gold') colorHex = "#ffd166";
-    else if (fish.color === 'red') colorHex = "#e63946";
-    else if (fish.color === 'verde') colorHex = "#06d6a0";
-    else if (fish.color === 'purple') colorHex = "#a855f7";
-    else if (fish.color === 'rainbow') colorHex = "url(#rainbow-fish)";
+    const fishColorName = fish.color === 'comum' ? 'comum' : fish.color;
+    const imageSrc = `/images/fish/fish_${fishColorName}.png`;
+
+    // Filtros de glow e sombra baseados na cor/raridade
+    let dropShadowFilter = "drop-shadow(0 0 3px rgba(59, 130, 246, 0.4))";
+    if (fish.color === 'gold') {
+      dropShadowFilter = "drop-shadow(0 0 5px rgba(251, 191, 36, 0.65))";
+    } else if (fish.color === 'vermelho') {
+      dropShadowFilter = "drop-shadow(0 0 4px rgba(239, 68, 68, 0.5))";
+    } else if (fish.color === 'verde') {
+      dropShadowFilter = "drop-shadow(0 0 4px rgba(16, 185, 129, 0.5))";
+    } else if (fish.color === 'purple') {
+      dropShadowFilter = "drop-shadow(0 0 5px rgba(168, 85, 247, 0.65))";
+    } else if (fish.color === 'rainbow') {
+      dropShadowFilter = "drop-shadow(0 0 8px rgba(236, 72, 153, 0.8))";
+    }
 
     return (
       <div
         key={fish.id}
-        className="absolute pointer-events-none select-none transition-opacity duration-300"
+        className="absolute pointer-events-none select-none fish-swim-wobble"
         style={{
           top: `${fish.y}%`,
           left: `${fish.offset}%`,
           transform: `scale(${fish.scale}) scaleX(${fish.leftToRight ? 1 : -1})`,
-          opacity: fish.depth === 'shallow' ? 0.75 : fish.depth === 'medium' ? 0.45 : 0.25,
+          opacity: fish.depth === 'shallow' ? 0.9 : fish.depth === 'medium' ? 0.55 : 0.22,
           zIndex: fish.depth === 'shallow' ? 4 : fish.depth === 'medium' ? 3 : 2,
+          transition: 'opacity 0.6s ease',
+          filter: dropShadowFilter
         }}
       >
-        {/* Sombra do Peixe */}
-        <svg className="w-16 h-10 translate-y-3 opacity-30 fill-black filter blur-xs" viewBox="0 0 100 50">
-          <path d="M10,25 Q40,5 70,25 L85,15 L80,25 L85,35 Z" />
-        </svg>
-
-        {/* Peixe Real */}
-        <div className="absolute top-0 left-0">
-          <svg className="w-16 h-10 filter drop-shadow-md" viewBox="0 0 100 50">
-            <path 
-              d="M10,25 Q40,5 70,25 L85,15 L80,25 L85,35 Z" 
-              fill={colorHex}
-            />
-            {/* Olho */}
-            <circle cx="25" cy="22" r="2" fill="white" />
-            <circle cx="25.5" cy="22" r="1" fill="black" />
-            
-            {/* Chapéu de Palha Caipira */}
-            {isLendario && (
-              <g transform="translate(16, 2) rotate(-10) scale(0.3)">
-                <path d="M20,50 Q50,0 80,50 Z" fill="#d9b38c" stroke="#8a5a36" strokeWidth="3" />
-                <ellipse cx="50" cy="53" rx="48" ry="12" fill="#d9b38c" stroke="#8a5a36" strokeWidth="3" />
-                <path d="M22,48 Q50,30 78,48 L76,51 Q50,35 24,51 Z" fill="#e63946" />
-              </g>
-            )}
-
-            <defs>
-              <linearGradient id="rainbow-fish" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#ec4899" />
-                <stop offset="50%" stopColor="#eab308" />
-                <stop offset="100%" stopColor="#06b6d4" />
-              </linearGradient>
-            </defs>
+        {/* Sombra subaquática do peixe */}
+        <div className="absolute top-8 left-3 opacity-30 filter blur-[3px] transform scale-y-50 scale-x-90">
+          <svg className="w-16 h-8 fill-black" viewBox="0 0 100 50">
+            <path d="M75,25 C60,10 25,12 15,25 C25,38 60,40 75,25 Z" />
           </svg>
+        </div>
+
+        {/* Peixe Realista Blended */}
+        <div className="relative w-24 h-16">
+          <img
+            src={imageSrc}
+            alt="Fish"
+            className="w-full h-full object-contain"
+            style={{ mixBlendMode: 'screen' }}
+            onError={(e) => {
+              // Se a imagem falhar, mostra o fallback do SVG antigo
+              e.currentTarget.style.display = 'none';
+              const fallback = e.currentTarget.parentElement?.querySelector('.fish-fallback');
+              if (fallback) fallback.setAttribute('class', 'fish-fallback block w-full h-full');
+            }}
+          />
+
+          {/* Fallback de SVG Caso as Imagens Falhem */}
+          <div className="fish-fallback hidden">
+            <svg className="w-full h-full overflow-visible" viewBox="0 0 120 60">
+              <path d="M15,30 C30,12 65,14 78,30 C65,46 30,48 15,30 Z" fill="#ffd166" />
+              <circle cx="24" cy="26" r="3.5" fill="white" />
+            </svg>
+          </div>
+
+          {/* Chapéu de Palha Junino Caipira */}
+          {isLendario && (
+            <div className="absolute" style={{ top: '-10px', left: fish.leftToRight ? '40px' : '0px' }}>
+              <svg className="w-10 h-8 overflow-visible" viewBox="0 0 100 80">
+                {/* Copa do chapéu */}
+                <path d="M25,45 Q50,5 75,45 Z" fill="#d9b38c" stroke="#7c2d12" strokeWidth="2" />
+                {/* Aba do chapéu */}
+                <ellipse cx="50" cy="48" rx="42" ry="8" fill="#eab308" stroke="#7c2d12" strokeWidth="2" />
+                {/* Fita vermelha */}
+                <path d="M27,43 Q50,29 73,43 L72,46 Q50,33 28,46 Z" fill="#e63946" />
+                {/* Detalhes de palha desfiada */}
+                <line x1="8" y1="50" x2="16" y2="47" stroke="#7c2d12" strokeWidth="1.2" />
+                <line x1="92" y1="50" x2="84" y2="47" stroke="#7c2d12" strokeWidth="1.2" />
+              </svg>
+            </div>
+          )}
         </div>
       </div>
     );
   };
 
+  // Coordenadas calculadas da ponta da vara na escala do Lago
+  const clientWidth = lakeRef.current?.clientWidth || 1000;
+  const clientHeight = lakeRef.current?.clientHeight || 450;
+  const tipXInLake = clientWidth - 241 + (rodTip.x * 1.28);
+  const tipYInLake = clientHeight - 236 + (rodTip.y * 1.28);
+
   return (
     <div className="w-full h-full flex flex-col relative">
       
-      {/* BARRA SUPERIOR DO LAGO (CONTROLES RÁPIDOS) */}
+      {/* Estilo local para Vitórias Régias e caustics */}
+      <style jsx global>{`
+        @keyframes waterLiliesSway {
+          0% { transform: rotate(-3deg) translateY(0px); }
+          100% { transform: rotate(3deg) translateY(2.5px); }
+        }
+      `}</style>
+
+      {/* BARRA SUPERIOR DO LAGO */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20 pointer-events-auto">
-        {/* Indicador de Status */}
-        <div className="bg-junina-blue-deep/80 border border-junina-gold/20 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs backdrop-blur-sm shadow-md">
+        <div className="bg-black/60 border border-junina-gold/30 px-4 py-2 rounded-2xl flex items-center gap-2.5 text-xs backdrop-blur-md shadow-lg">
           <div className={`w-2.5 h-2.5 rounded-full ${
             gameStatus === 'waiting' ? 'bg-junina-gold animate-pulse' :
             gameStatus === 'fishing' ? 'bg-blue-400 animate-ping' : 'bg-junina-green animate-bounce'
           }`} />
-          <span className="font-bold tracking-wide text-gray-200 uppercase">{statusMessage}</span>
+          <span className="font-extrabold tracking-widest text-junina-gold uppercase text-[10px]">{statusMessage}</span>
         </div>
 
-        {/* Mudo / Som */}
         <button
           onClick={() => setSoundEnabled(!soundEnabled)}
-          className={`p-2 rounded-full border border-junina-gold/20 text-junina-gold hover:bg-junina-gold/15 transition-all backdrop-blur-sm ${soundEnabled ? 'bg-junina-gold/10' : 'bg-junina-blue-deep/60'}`}
+          className={`p-2.5 rounded-2xl border border-white/10 text-junina-gold hover:bg-white/10 transition-all backdrop-blur-md ${soundEnabled ? 'bg-junina-gold/20 neon-border-gold' : 'bg-black/45'}`}
           title={soundEnabled ? 'Mutar Sons' : 'Ativar Sons'}
         >
           {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
       </div>
 
-      {/* ÁREA DO LAGO (LAKE VIEWPORT) */}
+      {/* ÁREA DO LAGO */}
       <div 
         ref={lakeRef}
-        className="flex-1 w-full rounded-3xl border border-junina-gold/30 water-surface relative select-none shadow-2xl overflow-hidden flex flex-col justify-end"
-        style={{ minHeight: '320px' }}
+        className="flex-1 w-full rounded-3xl border border-white/10 water-surface relative select-none shadow-2xl overflow-hidden flex flex-col justify-end min-h-[380px]"
       >
-        {/* Grade de Profundidade Visual (Simulada por Gradientes) */}
-        <div className="absolute inset-0 bg-gradient-to-t from-junina-blue-deep via-transparent to-transparent opacity-60 pointer-events-none" />
+        {/* Camada superior do lago (brilho e caustics) */}
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-400/5 via-transparent to-black/55 pointer-events-none z-1" />
 
-        {/* 1. Renderizar os Peixes que Nadam no Lago */}
+        {/* Vitórias-régias balançando suavemente */}
+        <div 
+          className="absolute top-[22%] left-[10%] w-14 h-7 bg-emerald-900/45 rounded-full border border-emerald-800/35 pointer-events-none z-2"
+          style={{ animation: 'waterLiliesSway 4s ease-in-out infinite alternate' }}
+        >
+          <div className="w-3.5 h-3.5 bg-pink-400/30 rounded-full absolute right-2.5 top-[-2px] animate-pulse" />
+        </div>
+        <div 
+          className="absolute top-[52%] right-[14%] w-18 h-9 bg-emerald-900/40 rounded-full border border-emerald-800/30 pointer-events-none z-2"
+          style={{ animation: 'waterLiliesSway 5s ease-in-out infinite alternate-reverse' }}
+        >
+          <div className="w-4 h-4 bg-pink-400/25 rounded-full absolute left-5 top-[-3px] animate-pulse" />
+        </div>
+
+        {/* Partículas de bolhas de ar subindo */}
+        {bubbles.map((b) => (
+          <div
+            key={b.id}
+            className="absolute bg-white/20 rounded-full border border-white/5 pointer-events-none"
+            style={{
+              left: `${b.x}%`,
+              top: `${b.y}%`,
+              width: `${b.size}px`,
+              height: `${b.size}px`,
+              opacity: b.opacity,
+              zIndex: 3,
+            }}
+          />
+        ))}
+
+        {/* Partículas de Splash (Física de água ativa) */}
+        {splashes.map((s) => (
+          <div
+            key={s.id}
+            className="absolute bg-blue-100 rounded-full border border-white/30 pointer-events-none z-10 filter blur-[0.5px]"
+            style={{
+              left: `${s.x}px`,
+              top: `${s.y}px`,
+              width: `${s.size}px`,
+              height: `${s.size}px`,
+              opacity: s.opacity,
+            }}
+          />
+        ))}
+
+        {/* 1. Renderizar os Peixes que Nadam */}
         {fishList.map(renderLakeFish)}
 
-        {/* 2. Efeitos de Ondulações na Água e Linha de Pesca */}
+        {/* 2. Efeitos e Linha de Pesca SVG */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-          
           {/* Ondulação (Ripple) da boia flutuando */}
           {gameStatus === 'fishing' && (
-            <g transform={`translate(${bobberPos.x * (lakeRef.current?.clientWidth || 0) / 100}, ${bobberPos.y * (lakeRef.current?.clientHeight || 0) / 100})`}>
-              <circle r="12" fill="none" stroke="rgba(255,259,102,0.4)" strokeWidth="1" className="animate-ping" style={{ animationDuration: '3s' }} />
-              <circle r="24" fill="none" stroke="rgba(255,259,102,0.2)" strokeWidth="1" className="animate-ping" style={{ animationDuration: '4s', animationDelay: '1s' }} />
+            <g transform={`translate(${bobberPos.x * clientWidth / 100}, ${bobberPos.y * clientHeight / 100})`}>
+              <circle r="14" fill="none" stroke="rgba(255,209,102,0.35)" strokeWidth="1" className="animate-ping" style={{ animationDuration: '2.5s' }} />
+              <circle r="28" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" className="animate-ping" style={{ animationDuration: '4s', animationDelay: '0.8s' }} />
             </g>
           )}
 
-          {/* Linha de Pesca (SVG Path Curvada) */}
+          {/* Linha de Pesca conectada Dinamicamente ao RodTip */}
           {(gameStatus === 'preparing' || gameStatus === 'fishing' || gameStatus === 'caught') && (
             <path
-              d={`M ${(lakeRef.current?.clientWidth || 0) / 2} ${(lakeRef.current?.clientHeight || 0) - 10} 
-                  Q ${(lakeRef.current?.clientWidth || 0) * (50 + (bobberPos.x - 50) * 0.4) / 100} ${(lakeRef.current?.clientHeight || 0) * (100 + (bobberPos.y - 100) * 0.55) / 100} 
-                  ${bobberPos.x * (lakeRef.current?.clientWidth || 0) / 100} ${bobberPos.y * (lakeRef.current?.clientHeight || 0) / 100}`}
+              d={
+                rodState === 'bending'
+                  ? `M ${tipXInLake} ${tipYInLake} 
+                     Q ${clientWidth * (bobberPos.x + 8) / 100} ${clientHeight * (bobberPos.y + 30) / 200} 
+                     ${bobberPos.x * clientWidth / 100} ${bobberPos.y * clientHeight / 100}`
+                  : `M ${tipXInLake} ${tipYInLake} 
+                     Q ${clientWidth * (bobberPos.x + 4) / 100} ${clientHeight * (bobberPos.y + 55) / 200} 
+                     ${bobberPos.x * clientWidth / 100} ${bobberPos.y * clientHeight / 100}`
+              }
               fill="none"
-              stroke="rgba(244,244,244,0.45)"
-              strokeWidth="1.2"
-              strokeDasharray={gameStatus === 'preparing' ? '4,4' : 'none'}
+              stroke={rodState === 'bending' ? "#ffd166" : "rgba(255,255,255,0.4)"}
+              strokeWidth={rodState === 'bending' ? "1.8" : "0.95"}
+              strokeDasharray={gameStatus === 'preparing' ? '3,3' : 'none'}
+              style={{ filter: rodState === 'bending' ? 'drop-shadow(0 0 4px rgba(255,209,102,0.8))' : 'none' }}
             />
           )}
-
         </svg>
 
-        {/* 3. A Boia de Pesca (Bobber) Física */}
+        {/* 3. A Boia de Pesca (Bobber) */}
         {(gameStatus === 'preparing' || gameStatus === 'fishing' || gameStatus === 'caught') && (
           <div
-            className={`absolute z-10 w-6 h-10 pointer-events-none flex flex-col items-center justify-start`}
+            className="absolute z-10 w-6 h-10 pointer-events-none flex flex-col items-center justify-start"
             style={{
               left: `${bobberPos.x}%`,
               top: `${bobberPos.y}%`,
-              transform: 'translate(-50%, -80%)',
-              transition: gameStatus === 'preparing' ? 'none' : 'top 0.1s ease-out, left 0.1s ease-out',
+              transform: `translate(-50%, ${bobberUnder ? '16px' : bobberTwitch ? '4px' : '0px'}) translate(-50%, -75%)`,
+              transition: gameStatus === 'preparing' ? 'none' : 'transform 0.1s ease-out, top 0.08s ease-out, left 0.08s ease-out',
+              opacity: bobberUnder ? 0.35 : 1
             }}
           >
-            {/* Boia caipira (metade vermelha, metade branca) */}
-            <div className={`w-3.5 h-6 rounded-full border border-black/40 shadow-md flex flex-col overflow-hidden ${
-              gameStatus === 'fishing' ? 'animate-bounce' : ''
-            }`} style={{ animationDuration: '1.2s' }}>
-              <div className="w-full h-1/2 bg-junina-red" />
-              <div className="w-full h-1/2 bg-white" />
+            {/* Boia caipira premium */}
+            <div className={`w-4 h-6 rounded-full border border-black/40 shadow-xl flex flex-col overflow-hidden ${
+              gameStatus === 'fishing' && !bobberTwitch ? 'animate-bounce' : ''
+            }`} style={{ animationDuration: '1.4s' }}>
+              <div className="w-full h-1/2 bg-gradient-to-b from-junina-red to-red-600" />
+              <div className="w-full h-1/2 bg-gradient-to-b from-white to-gray-200" />
             </div>
-            {/* Antena da Boia */}
-            <div className="w-0.5 h-3 bg-yellow-400 mt-[-28px]" />
+            {/* Haste/Antena da Boia */}
+            <div className="w-0.5 h-3.5 bg-junina-gold mt-[-26px] border-r border-black/20" />
           </div>
         )}
 
-        {/* 4. Renderizar Peixe Sendo Puxado (Estado Caught) */}
-        {gameStatus === 'caught' && (
+        {/* 4. Peixe Fisgado Emergindo */}
+        {gameStatus === 'caught' && caughtFishData && (
           <div 
             className="absolute z-10 pointer-events-none animate-bounce"
             style={{
               left: `${bobberPos.x}%`,
               top: `${bobberPos.y}%`,
-              transform: 'translate(-50%, -20%) scale(1.1)',
+              transform: 'translate(-50%, -30%) scale(1.3)',
+              animationDuration: '0.8s'
             }}
           >
-            {/* Peixe fisgado saindo da água com respingos */}
-            <div className="relative">
-              <svg className="w-12 h-8 fill-junina-gold text-white drop-shadow" viewBox="0 0 100 50">
-                <path d="M10,25 Q40,5 70,25 L85,15 L80,25 L85,35 Z" />
-              </svg>
-              <div className="absolute top-[-5px] right-[-5px] bg-junina-orange text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border border-white/20 scale-75 uppercase">
-                Fisgado!
+            <div className="relative w-16 h-12 flex items-center justify-center">
+              <img 
+                src={`/images/fish/fish_${caughtFishData.fishColor === 'comum' ? 'comum' : caughtFishData.fishColor}.png`}
+                alt="Fisgado"
+                className="w-full h-full object-contain filter drop-shadow-md"
+                style={{ mixBlendMode: 'screen' }}
+              />
+              {/* Efeito splash na fisgada */}
+              <div className="absolute inset-0 bg-blue-300/20 filter blur-xs animate-ping rounded-full scale-150" />
+              
+              <div className="absolute top-[-15px] right-[-15px] bg-junina-red text-white text-[8px] font-black px-2 py-0.5 rounded-full border border-white/30 scale-75 uppercase tracking-widest shadow-md">
+                FISGOU!
               </div>
             </div>
           </div>
         )}
 
-        {/* 5. A Vara de Pesca (Visual do Pescador no Rodapé) */}
-        <div className="w-full h-12 flex justify-center items-end relative z-10 pointer-events-none">
-          <div className="w-8 h-24 bg-gradient-to-t from-junina-wood-dark to-junina-wood rounded-full border border-junina-wood-light origin-bottom transform rotate-[-30deg] translate-y-12 translate-x-[-12px]" />
+        {/* 5. A Vara de Pesca (SVG premium com passadores e molinete) */}
+        <div className="absolute right-[-15px] bottom-[-20px] w-64 h-64 pointer-events-none z-15">
+          <svg 
+            className="w-full h-full overflow-visible" 
+            viewBox="0 0 200 200"
+            style={{
+              transform: rodState === 'casting' 
+                ? 'rotate(-12deg) translate(-12px, 12px)' 
+                : rodState === 'bending'
+                ? 'rotate(4deg) translate(4px, -4px)'
+                : 'rotate(0deg)',
+              transformOrigin: '170px 180px',
+              transition: 'transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.25)'
+            }}
+          >
+            {/* Cabo de madeira da vara */}
+            <path d="M165,185 L180,165" stroke="#2c1a0a" strokeWidth="8" strokeLinecap="round" />
+            <path d="M167,183 L178,167" stroke="#ffd166" strokeWidth="3" strokeLinecap="round" /> {/* Detalhe do punho */}
+            
+            {/* Carretilha/Molinete Premium */}
+            <g transform="translate(155, 155)">
+              <circle cx="10" cy="10" r="9" fill="#2d3748" stroke="#1a202c" strokeWidth="2" />
+              <rect x="7" y="3" width="6" height="14" rx="2" fill="#ffd166" />
+              <circle cx="10" cy="10" r="3.5" fill="#e2e8f0" />
+              {/* Manivela com rotação se estiver recolhendo */}
+              <g className={gameStatus === 'caught' ? 'origin-center animate-spin' : ''} style={{ transformOrigin: '10px 10px', animationDuration: '1s' }}>
+                <path d="M10,10 L3,2" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+                <circle cx="3" cy="2" r="3" fill="#e63946" />
+              </g>
+            </g>
+
+            {/* Corpo Flexível Dinâmico da Vara (Bending Path calculado por spring physics) */}
+            <path 
+              d={`M167,169 C145,${120 + (rodTip.y - 95) * 0.45} 108,${82 + (rodTip.y - 95) * 0.75} ${rodTip.x} ${rodTip.y}`} 
+              fill="none" 
+              stroke="#6a401c" 
+              strokeWidth="3.2" 
+              strokeLinecap="round" 
+            />
+
+            {/* Linha saindo do molinete até o corpo da vara */}
+            <path 
+              d={`M165,165 L125,${115 + (rodTip.y - 95) * 0.2} L95,${95 + (rodTip.y - 95) * 0.5} L${rodTip.x} ${rodTip.y}`} 
+              fill="none" 
+              stroke="rgba(255,255,255,0.3)" 
+              strokeWidth="0.8" 
+            />
+
+            {/* Passadores de linha (anéis) na vara */}
+            <g>
+              <circle cx={125} cy={115 + (rodTip.y - 95) * 0.2} r="2.5" fill="none" stroke="#ffd166" strokeWidth="1" />
+              <circle cx={95} cy={95 + (rodTip.y - 95) * 0.5} r="2" fill="none" stroke="#ffd166" strokeWidth="1" />
+              <circle cx={rodTip.x} cy={rodTip.y} r="1.5" fill="none" stroke="#ffd166" strokeWidth="1" />
+            </g>
+          </svg>
         </div>
 
       </div>
 
       {/* ÁREA DE CONTROLES INFERIORES */}
-      <div className="mt-4 flex flex-col md:flex-row gap-3 items-center">
+      <div className="mt-5 flex flex-col sm:flex-row gap-3.5 items-center w-full">
         
-        {/* Indicador de Aposta no Celular */}
-        <div className="w-full md:w-auto flex items-center justify-between gap-3 bg-junina-blue-deep/60 px-4 py-3 rounded-2xl border border-junina-gold/15 flex-1">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Valor da Rodada</span>
-            <span className="text-base font-black text-junina-gold">
+        {/* Indicador de Valor da Rodada */}
+        <div className="w-full sm:w-auto flex items-center justify-between gap-4 bg-junina-blue-deep/75 px-5 py-3.5 rounded-2xl border border-junina-gold/25 flex-1 shadow-inner">
+          <div className="flex flex-col text-left">
+            <span className="text-[9px] text-gray-400 uppercase tracking-widest font-black">Aposta da Rodada</span>
+            <span className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-junina-gold via-junina-orange to-junina-red mt-0.5">
               R$ {betAmount.toFixed(2)}
             </span>
           </div>
-          <div className="flex gap-1.5 text-xs font-bold text-gray-400">
-            <span>Mín: R$ 1,00</span>
+          <div className="flex gap-2 text-[10px] font-extrabold text-junina-gold bg-white/5 px-2.5 py-1 rounded-lg border border-junina-gold/15">
+            <span>Min: R$ 1</span>
             <span>•</span>
-            <span>Máx: R$ 500,00</span>
+            <span>Max: R$ 500</span>
           </div>
         </div>
 
-        {/* Botão Principal PESCAR */}
+        {/* Botão Principal */}
         <button
           onClick={handleCastFishingLine}
           disabled={isProcessing || gameStatus !== 'waiting'}
-          className={`w-full md:w-64 py-4 rounded-2xl font-black text-base shadow-xl tracking-wider select-none transform transition-all active:scale-[0.98] ${
+          className={`w-full sm:w-72 py-4 rounded-2xl font-black text-sm tracking-widest select-none transform transition-all active:scale-[0.97] uppercase shadow-lg border ${
             isProcessing || gameStatus !== 'waiting'
-              ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700/50'
-              : 'bg-gradient-to-r from-junina-orange via-junina-gold to-junina-orange text-junina-wood-dark hover:shadow-junina-gold/25 hover:brightness-105 hover:scale-[1.01]'
+              ? 'bg-gray-800/40 border-gray-700/30 text-gray-500 cursor-not-allowed'
+              : 'bg-gradient-to-r from-junina-orange via-junina-gold to-junina-orange border-junina-gold/40 text-junina-wood-dark hover:shadow-junina-gold/25 hover:brightness-105 hover:scale-[1.01] neon-border-gold font-extrabold'
           }`}
         >
-          {gameStatus === 'waiting' && 'LANCAR LINHA (PESCAR)'}
-          {gameStatus === 'preparing' && 'PREPARANDO...'}
-          {gameStatus === 'fishing' && 'AGUARDANDO PEIXE...'}
-          {gameStatus === 'caught' && 'RECOLHENDO LINHA!'}
+          {gameStatus === 'waiting' && 'ARREMESSAR VARA (PESCAR)'}
+          {gameStatus === 'preparing' && 'Arremessando...'}
+          {gameStatus === 'fishing' && 'Aguardando peixe...'}
+          {gameStatus === 'caught' && 'Fisgou! Recolhendo...'}
         </button>
 
       </div>

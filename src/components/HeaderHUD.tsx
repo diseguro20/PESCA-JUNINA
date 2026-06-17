@@ -29,19 +29,19 @@ export const HeaderHUD: React.FC = () => {
   const lockedBalance = wallet?.lockedBalance ?? 0;
 
   return (
-    <header className="sticky top-0 z-50 w-full px-4 py-3 md:px-8 border-b border-junina-gold/25 glass">
+    <header className="sticky top-0 z-50 w-full px-4 py-3 md:px-8 border-b border-junina-gold/30 glass shadow-2xl">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         
         {/* LOGO */}
         <Link href="/game" className="flex items-center gap-2 select-none group">
-          <div className="p-2 bg-gradient-to-br from-junina-orange to-junina-gold rounded-xl shadow-lg animate-sway">
+          <div className="p-2 bg-gradient-to-br from-junina-orange via-junina-gold to-junina-red rounded-xl shadow-lg animate-sway shadow-junina-gold/25">
             <Anchor className="w-6 h-6 text-junina-wood-dark stroke-[2.5]" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg md:text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-junina-gold via-junina-orange to-junina-red">
+            <span className="text-lg md:text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-junina-gold via-junina-orange to-junina-red group-hover:brightness-110 transition-all">
               PESCA ONLINE
             </span>
-            <span className="text-xs font-semibold tracking-widest text-junina-gold uppercase mt-[-4px]">
+            <span className="text-xs font-bold tracking-widest text-junina-gold uppercase mt-[-4px]">
               Festa Junina
             </span>
           </div>
@@ -49,23 +49,23 @@ export const HeaderHUD: React.FC = () => {
 
         {/* NAVEGAÇÃO DESKTOP */}
         <nav className="hidden lg:flex items-center gap-6">
-          <Link href="/game" className="flex items-center gap-1.5 text-sm font-bold text-gray-300 hover:text-junina-gold transition-colors">
+          <Link href="/game" className="flex items-center gap-1.5 text-sm font-extrabold text-gray-300 hover:text-junina-gold transition-colors">
             <Anchor className="w-4 h-4" /> Jogar
           </Link>
-          <Link href="/wallet" className="flex items-center gap-1.5 text-sm font-bold text-gray-300 hover:text-junina-gold transition-colors">
+          <Link href="/wallet" className="flex items-center gap-1.5 text-sm font-extrabold text-gray-300 hover:text-junina-gold transition-colors">
             <WalletIcon className="w-4 h-4" /> Carteira
           </Link>
-          <Link href="/history" className="flex items-center gap-1.5 text-sm font-bold text-gray-300 hover:text-junina-gold transition-colors">
+          <Link href="/history" className="flex items-center gap-1.5 text-sm font-extrabold text-gray-300 hover:text-junina-gold transition-colors">
             <HistoryIcon className="w-4 h-4" /> Histórico
           </Link>
-          <Link href="/ranking" className="flex items-center gap-1.5 text-sm font-bold text-gray-300 hover:text-junina-gold transition-colors">
+          <Link href="/ranking" className="flex items-center gap-1.5 text-sm font-extrabold text-gray-300 hover:text-junina-gold transition-colors">
             <Trophy className="w-4 h-4" /> Ranking
           </Link>
-          <Link href="/profile" className="flex items-center gap-1.5 text-sm font-bold text-gray-300 hover:text-junina-gold transition-colors">
+          <Link href="/profile" className="flex items-center gap-1.5 text-sm font-extrabold text-gray-300 hover:text-junina-gold transition-colors">
             <User className="w-4 h-4" /> Perfil
           </Link>
           {isAdmin && (
-            <Link href="/admin" className="flex items-center gap-1.5 text-sm font-extrabold text-junina-red hover:text-red-400 transition-colors animate-pulse">
+            <Link href="/admin" className="flex items-center gap-1.5 text-sm font-black text-junina-red hover:text-red-400 transition-colors animate-pulse">
               <ShieldCheck className="w-4 h-4" /> Painel Admin
             </Link>
           )}
@@ -76,9 +76,9 @@ export const HeaderHUD: React.FC = () => {
           
           {/* CARTEIRA RAPIDA */}
           <div className="flex flex-col items-end">
-            <div className="flex items-center gap-2 bg-junina-blue-deep/60 px-3 py-1.5 rounded-xl border border-junina-gold/20 shadow-inner">
-              <Coins className="w-4 h-4 text-junina-gold" />
-              <span className="font-extrabold text-junina-gold tracking-wide">
+            <div className="flex items-center gap-2 bg-junina-blue-deep/80 px-4 py-2 rounded-2xl border border-junina-gold/40 shadow-inner transition-all animate-neon-gold hover:border-junina-gold">
+              <Coins className="w-4 h-4 text-junina-gold animate-bounce" />
+              <span className="font-black text-junina-gold tracking-wide text-sm">
                 R$ {displayBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
@@ -86,14 +86,14 @@ export const HeaderHUD: React.FC = () => {
             {/* SAQUE BLOQUEADO (Se houver) */}
             {lockedBalance > 0 && (
               <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 mr-1">
-                <Lock className="w-2.5 h-2.5" />
+                <Lock className="w-2.5 h-2.5 text-junina-red" />
                 <span>Bloqueado: R$ {lockedBalance.toFixed(2)}</span>
               </div>
             )}
           </div>
 
           {/* PERFIL EXPANDIDO */}
-          <div className="flex items-center gap-2 border-l border-gray-700 pl-4">
+          <div className="flex items-center gap-2 border-l border-gray-700/60 pl-4">
             <div className="flex flex-col text-right">
               <span className="text-sm font-extrabold text-white truncate max-w-[120px]">{user.name}</span>
               <span className="text-[10px] text-junina-gold uppercase font-bold tracking-widest flex items-center justify-end gap-1">
@@ -105,12 +105,12 @@ export const HeaderHUD: React.FC = () => {
                 ) : 'Pescador'}
               </span>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-junina-wood to-junina-gold flex items-center justify-center border border-junina-gold/45 shadow shadow-junina-gold/20">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-junina-wood to-junina-gold flex items-center justify-center border border-junina-gold/45 shadow shadow-junina-gold/20 animate-glow">
               <span className="font-black text-sm text-junina-wood-dark">{user.name.charAt(0).toUpperCase()}</span>
             </div>
             <button 
               onClick={logout} 
-              className="p-2 text-gray-400 hover:text-junina-red hover:bg-red-500/10 rounded-xl transition-all ml-1"
+              className="p-2 text-gray-400 hover:text-junina-red hover:bg-red-500/10 rounded-xl transition-all ml-1 cursor-pointer"
               title="Sair da Quermesse"
             >
               <LogOut className="w-4 h-4" />

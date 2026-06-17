@@ -119,76 +119,45 @@ export const ResultModal: React.FC<ResultModalProps> = ({
         )}
 
         {/* ILUSTRAÇÃO/ÍCONE DE PEIXE */}
-        <div className="relative w-32 h-32 my-4 flex items-center justify-center">
-          <div className={`absolute inset-0 bg-radial-gradient from-white/5 to-transparent rounded-full filter blur-xl`} />
+        <div className="relative w-40 h-40 my-2 flex items-center justify-center overflow-visible">
+          {/* Sunburst giratório para vitórias */}
+          {isWin && (
+            <div className="absolute inset-0 w-full h-full sunburst-bg animate-sunburst rounded-full opacity-60 scale-125 z-0" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent rounded-full filter blur-xl z-0" />
           
           {isWin ? (
-            <div className="animate-fish-float flex flex-col items-center">
-              {/* Representação Vetorial do Peixe */}
-              <svg className="w-24 h-24 filter drop-shadow-lg" viewBox="0 0 100 100">
-                {/* Peixe Principal */}
-                <path 
-                  d="M10,50 Q40,25 70,50 Q85,40 95,30 Q92,50 95,70 Q85,60 70,50 Q40,75 10,50 Z" 
-                  fill={
-                    fishColor === 'gold' ? '#ffd166' : 
-                    fishColor === 'red' ? '#e63946' : 
-                    fishColor === 'green' ? '#06d6a0' : 
-                    fishColor === 'purple' ? '#a855f7' : 
-                    fishColor === 'rainbow' ? 'url(#rainbow-grad)' : '#3b82f6'
-                  }
-                  stroke={fishColor === 'rainbow' ? '#fff' : 'rgba(255,255,255,0.2)'}
-                  strokeWidth="1.5"
-                />
-                
-                {/* Rabo do Peixe */}
-                <path 
-                  d="M70,50 L85,38 L80,50 L85,62 Z" 
-                  fill={fishColor === 'rainbow' ? '#f472b6' : 'rgba(0,0,0,0.15)'}
-                />
-                
-                {/* Olho do Peixe */}
-                <circle cx="25" cy="45" r="4" fill="white" />
-                <circle cx="26" cy="45" r="2" fill="black" />
-                
-                {/* Chapéu de Palha (Apenas se for Lendário >= 10x) */}
-                {multiplier >= 10 && (
-                  <g transform="translate(14, 15) rotate(-20) scale(0.45)">
-                    {/* Copa do Chapéu */}
-                    <path d="M20,50 Q50,0 80,50 Z" fill="#d9b38c" stroke="#8a5a36" strokeWidth="3" />
-                    {/* Aba do Chapéu */}
-                    <ellipse cx="50" cy="53" rx="48" ry="12" fill="#d9b38c" stroke="#8a5a36" strokeWidth="3" />
-                    {/* Fita Vermelha */}
-                    <path d="M22,48 Q50,30 78,48 L76,51 Q50,35 24,51 Z" fill="#e63946" />
-                  </g>
-                )}
-
-                {/* Definições de Gradiente para o Peixe Lendário */}
-                <defs>
-                  <linearGradient id="rainbow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#ec4899" />
-                    <stop offset="30%" stopColor="#f43f5e" />
-                    <stop offset="60%" stopColor="#eab308" />
-                    <stop offset="100%" stopColor="#06b6d4" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              {/* Bolhas */}
+            <div className="animate-fish-float flex flex-col items-center relative z-10">
+              <img 
+                src={`/images/fish/fish_${fishColor === 'comum' ? 'comum' : fishColor}.png`} 
+                alt={fishType}
+                className="w-28 h-28 object-contain filter drop-shadow-2xl"
+                style={{ mixBlendMode: 'screen' }}
+              />
+              
+              {/* Chapéu de Palha (Apenas se for Lendário >= 10x) */}
+              {multiplier >= 10 && (
+                <div className="absolute" style={{ top: '-12px', right: '12px' }}>
+                  <svg className="w-10 h-8 overflow-visible" viewBox="0 0 100 80">
+                    <path d="M25,45 Q50,5 75,45 Z" fill="#d9b38c" stroke="#7c2d12" strokeWidth="2.5" />
+                    <ellipse cx="50" cy="48" rx="42" ry="8" fill="#eab308" stroke="#7c2d12" strokeWidth="2.5" />
+                    <path d="M27,43 Q50,29 73,43 L72,46 Q50,33 28,46 Z" fill="#e63946" />
+                  </svg>
+                </div>
+              )}
+              {/* Bolhas decorativas */}
               <div className="absolute top-2 right-4 w-2 h-2 bg-white/40 rounded-full animate-ping" />
               <div className="absolute top-8 left-2 w-1.5 h-1.5 bg-white/30 rounded-full animate-ping" style={{ animationDelay: '0.4s' }} />
             </div>
           ) : (
-            <svg className="w-24 h-24 text-gray-600 opacity-60" viewBox="0 0 100 100">
-              {/* Sapato velho ou latinha amassada (típico resultado 0x) */}
-              <path 
-                d="M15,80 Q20,30 35,40 L50,35 Q60,40 65,30 Q75,45 85,55 L85,80 L15,80 Z" 
-                fill="#4a4a4a" 
-                stroke="#2b2b2b" 
-                strokeWidth="2" 
+            <div className="animate-bounce flex flex-col items-center relative z-10" style={{ animationDuration: '2s' }}>
+              <img 
+                src="/images/fish/trash_boot.png" 
+                alt="Bota Velha"
+                className="w-24 h-24 object-contain filter drop-shadow-lg opacity-85"
+                style={{ mixBlendMode: 'screen' }}
               />
-              <path d="M15,80 L85,80" stroke="#ffd166" strokeWidth="3" />
-              <line x1="30" y1="40" x2="45" y2="70" stroke="#333" strokeWidth="2" />
-              <line x1="60" y1="45" x2="70" y2="75" stroke="#333" strokeWidth="2" />
-            </svg>
+            </div>
           )}
         </div>
 

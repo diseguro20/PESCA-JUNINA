@@ -124,22 +124,22 @@ export default function GamePage() {
       <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-6 md:px-8 grid grid-cols-1 lg:grid-cols-4 gap-6 items-start relative z-20">
         
         {/* COLUNA 1: PAINEL DE CONTROLES DE APOSTA (ESQUERDA) */}
-        <div className="lg:col-span-1 flex flex-col gap-5 w-full">
+        <div className="lg:col-span-1 flex flex-col gap-5 w-full animate-fade-in">
           
           {/* Card Apostas */}
-          <div className="glass-premium p-5 rounded-3xl flex flex-col">
-            <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Coins className="w-3.5 h-3.5 text-junina-gold" /> Painel da Pescaria
+          <div className="glass-premium p-5 rounded-3xl flex flex-col neon-border-gold">
+            <span className="text-[10px] text-junina-gold font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Coins className="w-3.5 h-3.5 text-junina-gold animate-bounce" /> Painel da Pescaria
             </span>
 
             {/* Input Manual */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-gray-300">Valor da Aposta (R$)</label>
-              <div className="flex items-center bg-junina-blue-deep/60 rounded-2xl border border-white/10 px-3 py-1">
+              <div className="flex items-center bg-junina-blue-deep/70 rounded-2xl border border-junina-gold/30 px-3 py-1 shadow-inner focus-within:border-junina-gold/75 transition-all">
                 <button
                   onClick={() => adjustBet(-1.00)}
                   disabled={isProcessing}
-                  className="p-2 text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+                  className="p-2 text-gray-400 hover:text-white disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -159,7 +159,7 @@ export default function GamePage() {
                 <button
                   onClick={() => adjustBet(1.00)}
                   disabled={isProcessing}
-                  className="p-2 text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+                  className="p-2 text-gray-400 hover:text-white disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -171,21 +171,21 @@ export default function GamePage() {
               <button
                 onClick={() => adjustBet(1.00)}
                 disabled={isProcessing}
-                className="py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-xl transition-all border border-white/5"
+                className="py-2.5 bg-white/5 hover:bg-junina-gold/15 hover:border-junina-gold/30 text-xs font-bold rounded-xl transition-all border border-white/5 cursor-pointer text-gray-200"
               >
                 + R$1
               </button>
               <button
                 onClick={() => adjustBet(5.00)}
                 disabled={isProcessing}
-                className="py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-xl transition-all border border-white/5"
+                className="py-2.5 bg-white/5 hover:bg-junina-gold/15 hover:border-junina-gold/30 text-xs font-bold rounded-xl transition-all border border-white/5 cursor-pointer text-gray-200"
               >
                 + R$5
               </button>
               <button
                 onClick={() => adjustBet(10.00)}
                 disabled={isProcessing}
-                className="py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-xl transition-all border border-white/5"
+                className="py-2.5 bg-white/5 hover:bg-junina-gold/15 hover:border-junina-gold/30 text-xs font-bold rounded-xl transition-all border border-white/5 cursor-pointer text-gray-200"
               >
                 + R$10
               </button>
@@ -195,62 +195,62 @@ export default function GamePage() {
               <button
                 onClick={() => multiplyBet(0.5)}
                 disabled={isProcessing}
-                className="py-2 bg-white/5 hover:bg-white/10 text-[10px] font-extrabold rounded-xl transition-all border border-white/5"
+                className="py-2 bg-white/5 hover:bg-junina-gold/10 hover:border-junina-gold/30 text-[10px] font-extrabold rounded-xl transition-all border border-white/5 cursor-pointer text-gray-400 hover:text-white"
               >
                 METADE (½)
               </button>
               <button
                 onClick={() => multiplyBet(2)}
                 disabled={isProcessing}
-                className="py-2 bg-white/5 hover:bg-white/10 text-[10px] font-extrabold rounded-xl transition-all border border-white/5"
+                className="py-2 bg-white/5 hover:bg-junina-gold/10 hover:border-junina-gold/30 text-[10px] font-extrabold rounded-xl transition-all border border-white/5 cursor-pointer text-gray-400 hover:text-white"
               >
                 DOBRAR (2x)
               </button>
               <button
                 onClick={() => setBetAmount(maxBet)}
                 disabled={isProcessing}
-                className="py-2 bg-white/5 hover:bg-white/10 text-[10px] font-extrabold rounded-xl transition-all border border-white/5"
+                className="py-2 bg-white/5 hover:bg-junina-gold/10 hover:border-junina-gold/30 text-[10px] font-extrabold rounded-xl transition-all border border-white/5 cursor-pointer text-gray-400 hover:text-white"
               >
                 MÁXIMO
               </button>
             </div>
 
             {/* Informações da banca */}
-            <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-1.5 text-xs text-gray-400">
+            <div className="mt-4 pt-4 border-t border-white/10 flex flex-col gap-1.5 text-xs text-gray-400">
               <div className="flex justify-between">
                 <span>Saldo Disponível</span>
-                <span className="font-bold text-gray-200">R$ {wallet?.balance.toFixed(2) ?? '0.00'}</span>
+                <span className="font-extrabold text-gray-200">R$ {wallet?.balance.toFixed(2) ?? '0.00'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Ganho Limite (10x)</span>
-                <span className="font-bold text-junina-gold">R$ {(betAmount * 10).toFixed(2)}</span>
+                <span className="font-extrabold text-junina-gold">R$ {(betAmount * 10).toFixed(2)}</span>
               </div>
             </div>
 
           </div>
 
           {/* Legenda de Multiplicadores */}
-          <div className="glass-premium p-5 rounded-3xl flex flex-col">
-            <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+          <div className="glass-premium p-5 rounded-3xl flex flex-col neon-border-orange">
+            <span className="text-[10px] text-junina-orange font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Flame className="w-3.5 h-3.5 text-junina-orange animate-pulse" /> Tabela de Peixes
             </span>
             <div className="flex flex-col gap-2">
               {[
-                { label: '0x - Nenhum Peixe', color: 'bg-gray-600', txt: 'Nada fisgou' },
-                { label: '0.5x - Peixe Comum', color: 'bg-blue-400', txt: 'Lambari pequenino' },
-                { label: '1.0x - Peixe Azul', color: 'bg-blue-600', txt: 'Peixe comum' },
-                { label: '1.5x - Peixe Vermelho', color: 'bg-red-500', txt: 'Traíra' },
-                { label: '2.0x - Peixe Verde', color: 'bg-green-400', txt: 'Pacu sapeca' },
-                { label: '3.0x - Peixe Roxo', color: 'bg-purple-500', txt: 'Tucunaré raro' },
-                { label: '5.0x - Peixe Dourado', color: 'bg-yellow-500', txt: 'Dourado nobre' },
-                { label: '10.0x - Lendário Junino', color: 'bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-300', txt: 'Chapéu de palha!' },
+                { label: '0x - Nenhum Peixe', color: 'bg-gray-600 border border-white/10 shadow', txt: 'Nada fisgou' },
+                { label: '0.5x - Peixe Comum', color: 'bg-blue-400 border border-blue-300 shadow', txt: 'Lambari' },
+                { label: '1.0x - Peixe Azul', color: 'bg-blue-600 border border-blue-500 shadow', txt: 'Comum' },
+                { label: '1.5x - Peixe Vermelho', color: 'bg-red-500 border border-red-400 shadow', txt: 'Traíra' },
+                { label: '2.0x - Peixe Verde', color: 'bg-green-400 border border-green-300 shadow', txt: 'Pacu sapeca' },
+                { label: '3.0x - Peixe Roxo', color: 'bg-purple-500 border border-purple-400 shadow', txt: 'Tucunaré' },
+                { label: '5.0x - Peixe Dourado', color: 'bg-yellow-500 border border-yellow-400 shadow-amber-300/40 shadow-md', txt: 'Dourado nobre' },
+                { label: '10.0x - Lendário Junino', color: 'bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-300 shadow-pink-500/50 shadow-md border border-white/30 animate-pulse', txt: 'Chapeuzinho!' },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
                     <span className="text-gray-300 font-bold">{item.label}</span>
                   </div>
-                  <span className="text-[10px] text-gray-500 font-medium">{item.txt}</span>
+                  <span className="text-[10px] text-gray-400 font-semibold">{item.txt}</span>
                 </div>
               ))}
             </div>
@@ -269,11 +269,11 @@ export default function GamePage() {
         </div>
 
         {/* COLUNA 4: HISTÓRICO & RANKING DO JOGADOR (DIREITA) */}
-        <div className="lg:col-span-1 flex flex-col gap-5 w-full">
+        <div className="lg:col-span-1 flex flex-col gap-5 w-full animate-fade-in">
           
           {/* Suas Últimas Capturas */}
-          <div className="glass-premium p-5 rounded-3xl flex flex-col max-h-72">
-            <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+          <div className="glass-premium p-5 rounded-3xl flex flex-col max-h-72 neon-border-gold">
+            <span className="text-[10px] text-junina-gold font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <HistoryIcon className="w-3.5 h-3.5 text-junina-gold" /> Suas Capturas
             </span>
 
@@ -284,7 +284,7 @@ export default function GamePage() {
                 history.slice(0, 5).map((round, idx) => {
                   const isWin = round.multiplier > 0;
                   return (
-                    <div key={idx} className="bg-junina-blue-deep/50 border border-white/5 px-3 py-2 rounded-xl flex items-center justify-between text-xs">
+                    <div key={idx} className="bg-junina-blue-deep/60 border border-white/5 px-3 py-2 rounded-xl flex items-center justify-between text-xs hover:border-junina-gold/20 transition-all">
                       <div className="flex flex-col">
                         <span className="font-extrabold text-white truncate max-w-[100px]">{round.fishType}</span>
                         <span className="text-[9px] text-gray-500">{new Date(round.createdAt).toLocaleTimeString()}</span>
@@ -303,8 +303,8 @@ export default function GamePage() {
           </div>
 
           {/* Top Pescadores do Ranking */}
-          <div className="glass-premium p-5 rounded-3xl flex flex-col max-h-72">
-            <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+          <div className="glass-premium p-5 rounded-3xl flex flex-col max-h-72 neon-border-orange">
+            <span className="text-[10px] text-junina-orange font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Trophy className="w-3.5 h-3.5 text-junina-orange animate-bounce" /> Top Pescadores
             </span>
 
@@ -313,7 +313,7 @@ export default function GamePage() {
                 <span className="text-xs text-gray-500 italic py-4 text-center">Carregando leaderboard...</span>
               ) : (
                 rankings.slice(0, 5).map((player, idx) => (
-                  <div key={idx} className="bg-junina-blue-deep/50 border border-white/5 px-3 py-2 rounded-xl flex items-center justify-between text-xs">
+                  <div key={idx} className="bg-junina-blue-deep/60 border border-white/5 px-3 py-2 rounded-xl flex items-center justify-between text-xs hover:border-junina-orange/20 transition-all">
                     <div className="flex items-center gap-2">
                       <span className={`font-black text-xs ${
                         idx === 0 ? 'text-yellow-400' :
