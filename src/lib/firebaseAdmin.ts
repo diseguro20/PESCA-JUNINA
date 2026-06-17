@@ -1,4 +1,6 @@
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY 
   ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) 
@@ -14,16 +16,16 @@ let adminDb: any = null;
 
 if (!isAdminDemoMode) {
   try {
-    if ((admin as any).apps.length === 0) {
-      adminApp = admin.initializeApp({
-        credential: (admin as any).credential.cert(serviceAccount),
+    if (getApps().length === 0) {
+      adminApp = initializeApp({
+        credential: cert(serviceAccount),
         projectId: projectId
       });
     } else {
-      adminApp = (admin as any).apps[0]!;
+      adminApp = getApp();
     }
-    adminAuth = (admin as any).auth();
-    adminDb = (admin as any).firestore();
+    adminAuth = getAuth(adminApp);
+    adminDb = getFirestore(adminApp);
     console.log("Firebase Admin SDK inicializado com sucesso.");
   } catch (error) {
     console.error("Falha ao inicializar o Firebase Admin SDK. Entrando em Modo Admin Demo.", error);
