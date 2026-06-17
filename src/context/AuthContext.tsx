@@ -65,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Fluxo Firebase Real
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        setLoading(true);
         // Escutar perfil do usuário no Firestore em tempo real
         const userRef = doc(db, 'users', firebaseUser.uid);
         
@@ -97,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
         }, (error) => {
           console.error("Erro ao escutar perfil:", error);
+          setUser(null);
           setLoading(false);
         });
 
@@ -134,7 +136,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Firebase Real
-    await signInWithEmailAndPassword(auth, email, password);
+    setLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Esperar leitura do perfil para garantir permissão e existência antes de redirecionar
+      const userRef = doc(db, 'users', userCredential.user.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        throw new Error("Perfil do usuário não encontrado no banco de dados.");
+      }
+      
+      setUser({
+        uid: userCredential.user.uid,
+        ...(userSnap.data() as Omit<UserProfile, 'uid'>)
+      });
+    } catch (err: any) {
+      // Garantir limpeza em caso de erro
+      setUser(null);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Cadastro
