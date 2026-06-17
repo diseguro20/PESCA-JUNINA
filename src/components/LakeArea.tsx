@@ -20,6 +20,12 @@ interface Fish {
   swimSpeedFactor: number; // Fator de velocidade atual (aceleração/glide)
   changeTargetTimer: number; // Contagem regressiva para novo alvo vertical
   wigglePhase: number; // Fase para a oscilação vertical
+  
+  // Variáveis da física "Burst & Glide" (Impulso e Deslizamento)
+  swimCycleTimer: number; // Temporizador interno do ciclo de nado
+  swimCyclePeriod: number; // Duração do ciclo completo (batidas + deslize)
+  burstDuration: number; // Duração do impulso ativo
+  wiggleAmp: number; // Amplitude atual do bater de cauda (0 a 1)
 }
 
 interface Bubble {
@@ -309,17 +315,23 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         x: Math.random() * 100,
         y,
         scale,
-        speedX: 0.03 + Math.random() * 0.04,
+        speedX: 0.012 + Math.random() * 0.018, // Velocidade horizontal base reduzida e mais natural
         speedY: 0,
         targetY: y,
         leftToRight: Math.random() > 0.5,
         currentScaleX: Math.random() > 0.5 ? 1 : -1,
         depth,
         hasHat: type === 'rainbow' || (type === 'gold' && Math.random() > 0.5),
-        wiggleSpeed: 0.15 + Math.random() * 0.15,
-        swimSpeedFactor: 1.0,
+        wiggleSpeed: 0.09 + Math.random() * 0.06, // Velocidade base do wiggle suavizada
+        swimSpeedFactor: 0.4,
         changeTargetTimer: 50 + Math.floor(Math.random() * 150),
-        wigglePhase: Math.random() * Math.PI * 2
+        wigglePhase: Math.random() * Math.PI * 2,
+        
+        // Inicialização física "Burst & Glide" (Impulso e Deslizamento)
+        swimCycleTimer: Math.random() * 200, // Tempo de início aleatório
+        swimCyclePeriod: 160 + Math.random() * 140, // Ciclo completo (2.6 a 5 segundos)
+        burstDuration: 35 + Math.random() * 25, // Duração ativa da batida (0.6 a 1 segundo)
+        wiggleAmp: 0
       };
     });
   }, []);
@@ -362,10 +374,37 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       // 1. Atualizar física dos peixes no array em memória e aplicar transformações no DOM diretamente (60 FPS fluidos)
       const currentFishList = fishListRef.current;
       const now = Date.now();
+      const lakeWidth = lakeWidthRef.current;
+      
+      // Responsividade de escala: peixes encolhem proporcionalmente em telas menores
+      const responsivenessFactor = Math.max(0.5, Math.min(1.0, lakeWidth / 850));
+
       for (let i = 0; i < currentFishList.length; i++) {
         const fish = currentFishList[i]!;
 
-        // a. Atualizar timer de mudança de direção vertical
+        // a. Ciclo de nado (Burst & Glide)
+        fish.swimCycleTimer += 1;
+        if (fish.swimCycleTimer >= fish.swimCyclePeriod) {
+          fish.swimCycleTimer = 0;
+          fish.swimCyclePeriod = 160 + Math.random() * 140;
+          fish.burstDuration = 35 + Math.random() * 25;
+        }
+
+        const isBursting = fish.swimCycleTimer < fish.burstDuration;
+
+        if (isBursting) {
+          // Fase de Impulso (Burst): acelera gradualmente e bate a cauda de forma ágil
+          fish.swimSpeedFactor += (1.30 - fish.swimSpeedFactor) * 0.05;
+          fish.wiggleAmp += (1.0 - fish.wiggleAmp) * 0.12;
+          fish.wigglePhase += fish.wiggleSpeed * 1.4; // Frequência ativa de batidas
+        } else {
+          // Fase de Deslizamento (Glide): desacelera por atrito e cauda para de bater
+          fish.swimSpeedFactor += (0.20 - fish.swimSpeedFactor) * 0.015;
+          fish.wiggleAmp += (0.0 - fish.wiggleAmp) * 0.06;
+          fish.wigglePhase += fish.wiggleSpeed * 0.12; // Oscilação residual muito sutil
+        }
+
+        // b. Atualizar timer de mudança de direção vertical
         fish.changeTargetTimer -= 1;
         if (fish.changeTargetTimer <= 0) {
           let minY = 28, maxY = 80;
@@ -377,21 +416,16 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           fish.changeTargetTimer = 180 + Math.floor(Math.random() * 240); // 3 a 7 segundos em 60fps
         }
 
-        // b. Movimento vertical orgânico em direção ao targetY
+        // c. Movimento vertical orgânico em direção ao targetY
         const diffY = fish.targetY - fish.y;
-        fish.speedY = fish.speedY + (diffY * 0.0025 - fish.speedY * 0.08);
+        fish.speedY = fish.speedY + (diffY * 0.0016 - fish.speedY * 0.08); // Suavização do nado vertical
         fish.y += fish.speedY;
 
         // Adicionar uma oscilação senoidal sutil na posição vertical
-        const wobble = Math.sin(now * 0.003 + (fish.id * 5)) * 0.03;
+        const wobble = Math.sin(now * 0.002 + (fish.id * 5)) * 0.025;
         fish.y += wobble;
 
-        // c. Movimento horizontal com impulsos e glides
-        if (Math.random() < 0.004) {
-          fish.swimSpeedFactor = 0.4 + Math.random() * 1.1;
-        }
-        fish.swimSpeedFactor += (1.0 - fish.swimSpeedFactor) * 0.012;
-
+        // d. Movimento horizontal
         fish.x += (fish.leftToRight ? fish.speedX : -fish.speedX) * fish.swimSpeedFactor;
 
         // Curva de retorno suave nas bordas
@@ -401,30 +435,36 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           fish.leftToRight = true;
         }
 
-        // d. Giro 3D suave (currentScaleX)
+        // e. Giro 3D suave (currentScaleX)
         const targetScaleX = fish.leftToRight ? 1 : -1;
         fish.currentScaleX += (targetScaleX - fish.currentScaleX) * 0.07;
 
-        // Atualizar acumulador de fase de ondulação baseado na velocidade de nado real
-        const currentSpeed = Math.max(Math.abs(fish.speedX) * fish.swimSpeedFactor, 0.015);
-        fish.wigglePhase += currentSpeed * 6.5;
-
-        // e. Atualizar o DOM diretamente para evitar re-renders do React e garantir 60fps lisos
+        // f. Atualizar o DOM diretamente para evitar re-renders do React e garantir 60fps lisos
         const el = document.getElementById(`fish-el-${fish.id}`);
         if (el) {
           el.style.left = `${fish.x}%`;
           el.style.top = `${fish.y}%`;
-          el.style.transform = `scale(${fish.scale}) scaleX(${fish.currentScaleX})`;
+          
+          // Aplicar escala do peixe com base na profundidade e no fator de responsividade da tela
+          const currentScale = fish.scale * responsivenessFactor;
+          el.style.transform = `scale(${currentScale.toFixed(3)}) scaleX(${fish.currentScaleX.toFixed(3)})`;
           
           const innerEl = document.getElementById(`fish-wiggle-el-${fish.id}`) as HTMLDivElement;
           if (innerEl) {
-            // Calcular rotação e distorção senoidal do nado (peixe balançando a cauda)
-            const wiggleAngle = Math.sin(fish.wigglePhase) * 6.0; // Até 6 graus
-            const skewY = Math.sin(fish.wigglePhase) * 6.5;      // Efeito de deformação de corpo
-            const scaleY = 0.96 + Math.cos(fish.wigglePhase * 2) * 0.04; // Sutil compressão
-            const translateX = Math.sin(fish.wigglePhase) * 1.5; // Deslocamento sutil para frente/trás
+            // Calcular rotação e distorção senoidal do nado usando a amplitude atual
+            const wiggleAngleBase = Math.sin(fish.wigglePhase) * 6.0 * fish.wiggleAmp;
             
-            innerEl.style.transform = `rotate(${wiggleAngle.toFixed(2)}deg) skewY(${skewY.toFixed(2)}deg) scaleY(${scaleY.toFixed(2)}) translateX(${translateX.toFixed(2)}px)`;
+            // Adicionar inclinação corporal vertical (Pitch) baseado na velocidade vertical
+            // Se speedY > 0 (descendo), o peixe inclina para baixo. Se speedY < 0 (subindo), inclina para cima.
+            // Multiplicamos por -180 para converter a taxa de velocidade em graus de inclinação física coerente
+            const pitchAngle = Math.max(-12, Math.min(12, -fish.speedY * 180));
+            const totalRotation = wiggleAngleBase + pitchAngle;
+
+            const skewY = Math.sin(fish.wigglePhase) * 6.5 * fish.wiggleAmp;
+            const scaleY = 1.0 - (1.0 - (0.96 + Math.cos(fish.wigglePhase * 2) * 0.04)) * fish.wiggleAmp;
+            const translateX = Math.sin(fish.wigglePhase) * 1.5 * fish.wiggleAmp;
+            
+            innerEl.style.transform = `rotate(${totalRotation.toFixed(2)}deg) skewY(${skewY.toFixed(2)}deg) scaleY(${scaleY.toFixed(2)}) translateX(${translateX.toFixed(2)}px)`;
             innerEl.style.transformOrigin = fish.currentScaleX > 0 ? 'right center' : 'left center';
           }
 
