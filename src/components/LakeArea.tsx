@@ -64,6 +64,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   
   // Elementos do Lago, Partículas e Física
   const [fishList, setFishList] = useState<Fish[]>([]);
+  const fishListRef = useRef<Fish[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [splashes, setSplashes] = useState<Splash[]>([]);
   const lakeRef = useRef<HTMLDivElement>(null);
@@ -211,6 +212,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       };
     });
     setFishList(generatedFish);
+    fishListRef.current = generatedFish;
   }, []);
 
   // 2. Loop de animação dos peixes, mola da vara e partículas
@@ -219,66 +221,68 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
     let bubbleCounter = 0;
 
     const updatePhysics = () => {
-      // Atualizar peixes
-      setFishList((prevList) =>
-        prevList.map((fish) => {
-          // 1. Atualizar timer de mudança de direção vertical
-          let newTimer = fish.changeTargetTimer - 1;
-          let newTargetY = fish.targetY;
-          if (newTimer <= 0) {
-            let minY = 28, maxY = 80;
-            if (fish.depth === 'shallow') { minY = 28; maxY = 45; }
-            else if (fish.depth === 'medium') { minY = 45; maxY = 65; }
-            else if (fish.depth === 'deep') { minY = 65; maxY = 82; }
-            
-            newTargetY = minY + Math.random() * (maxY - minY);
-            newTimer = 180 + Math.floor(Math.random() * 240); // 3 a 7 segundos em 60fps
+      // 1. Atualizar física dos peixes no array em memória e aplicar transformações no DOM diretamente (60 FPS fluidos)
+      const currentFishList = fishListRef.current;
+      const now = Date.now();
+      for (let i = 0; i < currentFishList.length; i++) {
+        const fish = currentFishList[i]!;
+
+        // a. Atualizar timer de mudança de direção vertical
+        fish.changeTargetTimer -= 1;
+        if (fish.changeTargetTimer <= 0) {
+          let minY = 28, maxY = 80;
+          if (fish.depth === 'shallow') { minY = 28; maxY = 45; }
+          else if (fish.depth === 'medium') { minY = 45; maxY = 65; }
+          else if (fish.depth === 'deep') { minY = 65; maxY = 82; }
+          
+          fish.targetY = minY + Math.random() * (maxY - minY);
+          fish.changeTargetTimer = 180 + Math.floor(Math.random() * 240); // 3 a 7 segundos em 60fps
+        }
+
+        // b. Movimento vertical orgânico em direção ao targetY
+        const diffY = fish.targetY - fish.y;
+        fish.speedY = fish.speedY + (diffY * 0.0025 - fish.speedY * 0.08);
+        fish.y += fish.speedY;
+
+        // Adicionar uma oscilação senoidal sutil
+        const wobble = Math.sin(now * 0.003 + fish.wigglePhase) * 0.03;
+        fish.y += wobble;
+
+        // c. Movimento horizontal com impulsos e glides
+        if (Math.random() < 0.004) {
+          fish.swimSpeedFactor = 0.4 + Math.random() * 1.1;
+        }
+        fish.swimSpeedFactor += (1.0 - fish.swimSpeedFactor) * 0.012;
+
+        fish.x += (fish.leftToRight ? fish.speedX : -fish.speedX) * fish.swimSpeedFactor;
+
+        // Curva de retorno suave nas bordas
+        if (fish.x > 105 && fish.leftToRight) {
+          fish.leftToRight = false;
+        } else if (fish.x < -15 && !fish.leftToRight) {
+          fish.leftToRight = true;
+        }
+
+        // d. Giro 3D suave (currentScaleX)
+        const targetScaleX = fish.leftToRight ? 1 : -1;
+        fish.currentScaleX += (targetScaleX - fish.currentScaleX) * 0.07;
+
+        // e. Atualizar o DOM diretamente para evitar re-renders do React e garantir 60fps lisos
+        const el = document.getElementById(`fish-el-${fish.id}`);
+        if (el) {
+          el.style.left = `${fish.x}%`;
+          el.style.top = `${fish.y}%`;
+          el.style.transform = `scale(${fish.scale}) scaleX(${fish.currentScaleX})`;
+          
+          const innerEl = el.querySelector('.fish-wiggle-anim') as HTMLDivElement;
+          if (innerEl) {
+            const currentSpeed = Math.max(Math.abs(fish.speedX) * fish.swimSpeedFactor, 0.01);
+            const wiggleDuration = (0.08 / currentSpeed).toFixed(2);
+            innerEl.style.animationDuration = `${wiggleDuration}s`;
+            innerEl.style.transformOrigin = fish.currentScaleX > 0 ? 'right center' : 'left center';
           }
-
-          // 2. Movimento vertical orgânico em direção ao targetY
-          const diffY = newTargetY - fish.y;
-          let newSpeedY = fish.speedY + (diffY * 0.002 - fish.speedY * 0.08);
-          let newY = fish.y + newSpeedY;
-
-          // Adicionar uma oscilação senoidal sutil
-          const time = Date.now();
-          const wobble = Math.sin(time * 0.003 + fish.wigglePhase) * 0.05;
-          newY += wobble;
-
-          // 3. Movimento horizontal com impulsos e glides
-          let newSpeedFactor = fish.swimSpeedFactor;
-          if (Math.random() < 0.005) {
-            newSpeedFactor = 0.5 + Math.random() * 1.0;
-          }
-          newSpeedFactor += (1.0 - newSpeedFactor) * 0.01;
-
-          let newX = fish.x + (fish.leftToRight ? fish.speedX : -fish.speedX) * newSpeedFactor;
-          let newDir = fish.leftToRight;
-
-          // Curva de retorno suave
-          if (newX > 105 && fish.leftToRight) {
-            newDir = false;
-          } else if (newX < -15 && !fish.leftToRight) {
-            newDir = true;
-          }
-
-          // 4. Giro 3D suave (currentScaleX)
-          const targetScaleX = newDir ? 1 : -1;
-          const newScaleX = fish.currentScaleX + (targetScaleX - fish.currentScaleX) * 0.08;
-
-          return {
-            ...fish,
-            x: newX,
-            y: newY,
-            speedY: newSpeedY,
-            targetY: newTargetY,
-            changeTargetTimer: newTimer,
-            swimSpeedFactor: newSpeedFactor,
-            leftToRight: newDir,
-            currentScaleX: newScaleX,
-          };
-        })
-      );
+        }
+      }
 
       // Atualizar física de mola (Spring) da vara de pesca
       setRodTip((prevTip) => {
@@ -495,12 +499,13 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
 
     return (
       <div
+        id={`fish-el-${fish.id}`}
         key={fish.id}
         className="absolute pointer-events-none select-none"
         style={{
-          top: `${fish.y}%`,
-          left: `${fish.x}%`,
-          transform: `scale(${fish.scale}) scaleX(${fish.currentScaleX})`,
+          top: `${fishListRef.current[fish.id]?.y ?? fish.y}%`,
+          left: `${fishListRef.current[fish.id]?.x ?? fish.x}%`,
+          transform: `scale(${fish.scale}) scaleX(${fishListRef.current[fish.id]?.currentScaleX ?? fish.currentScaleX})`,
           opacity: fish.depth === 'shallow' ? 0.9 : fish.depth === 'medium' ? 0.55 : 0.22,
           zIndex: fish.depth === 'shallow' ? 4 : fish.depth === 'medium' ? 3 : 2,
           transition: 'opacity 0.6s ease',
@@ -516,9 +521,9 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
 
         {/* Peixe Realista */}
         <div 
-          className="relative w-24 h-16"
+          className="relative w-24 h-16 fish-wiggle-anim"
           style={{
-            transformOrigin: fish.currentScaleX > 0 ? 'right center' : 'left center',
+            transformOrigin: (fishListRef.current[fish.id]?.currentScaleX ?? fish.currentScaleX) > 0 ? 'right center' : 'left center',
             animation: `fishWiggle ${wiggleDuration}s ease-in-out infinite`,
             animationDelay: `${fish.wigglePhase}s`
           }}
@@ -581,19 +586,19 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         }
         @keyframes fishWiggle {
           0% {
-            transform: rotate(0deg) skewY(0deg) scaleY(1);
+            transform: rotate(0deg) skewY(0deg) scaleY(1) translateX(0px);
           }
           25% {
-            transform: rotate(-3deg) skewY(-5deg) scaleY(0.96);
+            transform: rotate(-4deg) skewY(-6deg) scaleY(0.94) translateX(2px);
           }
           50% {
-            transform: rotate(0deg) skewY(0deg) scaleY(1);
+            transform: rotate(0deg) skewY(0deg) scaleY(1) translateX(0px);
           }
           75% {
-            transform: rotate(3deg) skewY(5deg) scaleY(0.96);
+            transform: rotate(4deg) skewY(6deg) scaleY(0.94) translateX(-2px);
           }
           100% {
-            transform: rotate(0deg) skewY(0deg) scaleY(1);
+            transform: rotate(0deg) skewY(0deg) scaleY(1) translateX(0px);
           }
         }
       `}</style>
