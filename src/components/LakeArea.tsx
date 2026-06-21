@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Volume2, VolumeX, HelpCircle, AlertCircle } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { CheckoutModal } from './CheckoutModal';
 
 interface Fish {
   id: number;
@@ -163,13 +164,14 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   isProcessing,
   setIsProcessing
 }) => {
-  const { playFishingRound } = useGame();
+  const { playFishingRound, wallet } = useGame();
   
   // Estados do Jogo
   const [gameStatus, setGameStatus] = useState<'waiting' | 'preparing' | 'fishing' | 'caught' | 'result'>('waiting');
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Escolha o valor e jogue a linha!');
   const [caughtFishData, setCaughtFishData] = useState<any>(null);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   
   // Elementos do Lago, Partículas e Física
   const fishListRef = useRef<Fish[]>([]);
@@ -661,6 +663,12 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   const handleCastFishingLine = async () => {
     if (isProcessing || gameStatus !== 'waiting') return;
 
+    // Se o saldo for insuficiente, abrir o checkout
+    if (!wallet || wallet.balance < betAmount) {
+      setIsCheckoutOpen(true);
+      return;
+    }
+
     setIsProcessing(true);
     setGameStatus('preparing');
     updateRodState('casting');
@@ -1016,6 +1024,13 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         </button>
 
       </div>
+
+      {/* CHECKOUT MODAL PARA SALDO INSUFICIENTE */}
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        betAmount={betAmount}
+      />
 
     </div>
   );
