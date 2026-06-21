@@ -68,7 +68,7 @@ export default function SignupPage() {
           </div>
 
           <h2 className="text-2xl font-black text-white text-center mb-1">CADASTRAR PESCADOR</h2>
-          <p className="text-gray-400 text-xs text-center mb-6">Preencha os campos para ganhar R$ 100 de crédito virtual</p>
+          <p className="text-gray-400 text-xs text-center mb-6">Preencha os campos para ganhar seus 100 créditos de simulação</p>
 
           {/* Banner de erro */}
           {error && (
@@ -155,7 +155,7 @@ export default function SignupPage() {
               disabled={submitting}
               className="w-full py-3.5 bg-gradient-to-r from-junina-orange to-junina-gold text-junina-wood-dark font-black rounded-xl hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm mt-3"
             >
-              {submitting ? 'CADASRANDO...' : 'CADASTRAR E GANHAR R$ 100'}
+              {submitting ? 'CADASTRANDO...' : 'CADASTRAR E COMEÇAR A JOGAR'}
             </button>
           </form>
 

@@ -60,7 +60,7 @@ export default function Home() {
 
         <p className="max-w-2xl text-base md:text-xl text-gray-300 font-bold leading-relaxed mb-10 text-shadow">
           A clássica pescaria de quermesse brasileira de um jeito premium, moderno e 100% online. 
-          Cadastre-se hoje e <span className="text-junina-gold font-extrabold underline decoration-junina-orange decoration-2">ganhe R$ 100,00</span> em créditos de demonstração para fisgar os maiores prêmios do lago caipira!
+          Cadastre-se hoje e <span className="text-junina-gold font-extrabold underline decoration-junina-orange decoration-2">ganhe 100 créditos</span> de simulação para fisgar os maiores peixes do lago caipira!
         </p>
 
         {/* BOTÕES DE CHAMADA DE AÇÃO (CTA) */}
@@ -69,7 +69,7 @@ export default function Home() {
             href="/signup"
             className="flex-1 py-4 bg-gradient-to-r from-junina-orange via-junina-gold to-junina-orange text-junina-wood-dark font-black rounded-2xl shadow-xl hover:shadow-junina-gold/30 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm md:text-base neon-border-gold cursor-pointer"
           >
-            CADASTRE-SE E GANHE R$ 100 <ArrowRight className="w-5 h-5" />
+            JOGAR GRÁTIS AGORA <ArrowRight className="w-5 h-5" />
           </Link>
           <Link
             href="/login"
@@ -87,9 +87,9 @@ export default function Home() {
             <div className="w-12 h-12 rounded-2xl bg-junina-gold/10 flex items-center justify-center text-junina-gold shadow">
               <Coins className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-extrabold text-white">Carteira Virtual Inteligente</h3>
+            <h3 className="text-lg font-extrabold text-white">Painel de Conquistas & Pontos</h3>
             <p className="text-sm text-gray-400 leading-relaxed font-semibold">
-              Monitore seu saldo disponível e acompanhe saques pendentes com total clareza. Preparado para futuras integrações de pagamento automático.
+              Acompanhe seu saldo de pontos, recordes de tamanho de peixe e estatísticas de pescaria em tempo real com total clareza.
             </p>
           </div>
 
@@ -111,7 +111,7 @@ export default function Home() {
             </div>
             <h3 className="text-lg font-extrabold text-white">Segurança de Ponta</h3>
             <p className="text-sm text-gray-400 leading-relaxed font-semibold">
-              Nada de processamento no lado do cliente. Todos os cálculos de saldo, sorteios de peixes e auditorias ocorrem de forma encriptada no backend.
+              Nada de processamento no lado do cliente. Todos os cálculos de pontuação, sorteios de peixes e validações ocorrem de forma segura no servidor.
             </p>
           </div>
 
