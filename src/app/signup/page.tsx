@@ -47,6 +47,10 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       await signup(name, email, password);
+      // Disparar evento do Meta Pixel (CompleteRegistration)
+      if (typeof window !== 'undefined' && (window as any).fbq) {
+        (window as any).fbq('track', 'CompleteRegistration');
+      }
       router.push('/game');
     } catch (err: any) {
       setError(err.message || "Erro ao efetuar cadastro. Tente outro e-mail.");
