@@ -60,7 +60,7 @@ export default function Home() {
 
         <p className="max-w-2xl text-base md:text-xl text-gray-300 font-bold leading-relaxed mb-10 text-shadow">
           A clássica pescaria de quermesse brasileira de um jeito premium, moderno e 100% online. 
-          Cadastre-se hoje e <span className="text-junina-gold font-extrabold underline decoration-junina-orange decoration-2">ganhe 100 créditos</span> de simulação para fisgar os maiores peixes do lago caipira!
+          Cadastre-se hoje, <span className="text-junina-gold font-extrabold underline decoration-junina-orange decoration-2">adicione créditos</span> para garantir seus prêmios e comece a pescar no lago caipira!
         </p>
 
         {/* BOTÕES DE CHAMADA DE AÇÃO (CTA) */}
@@ -69,7 +69,7 @@ export default function Home() {
             href="/signup"
             className="flex-1 py-4 bg-gradient-to-r from-junina-orange via-junina-gold to-junina-orange text-junina-wood-dark font-black rounded-2xl shadow-xl hover:shadow-junina-gold/30 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm md:text-base neon-border-gold cursor-pointer"
           >
-            JOGAR GRÁTIS AGORA <ArrowRight className="w-5 h-5" />
+            CADASTRAR E COMEÇAR <ArrowRight className="w-5 h-5" />
           </Link>
           <Link
             href="/login"
