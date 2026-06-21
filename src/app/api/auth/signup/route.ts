@@ -31,10 +31,10 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString()
     };
 
-    // Criar carteira com R$ 100,00 inicial de boas-vindas
+    // Criar carteira com R$ 0,00 inicial
     const newWallet = {
       uid,
-      balance: 100.00,
+      balance: 0.00,
       lockedBalance: 0.00,
       updatedAt: new Date().toISOString()
     };

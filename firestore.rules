@@ -29,9 +29,9 @@ service cloud.firestore {
     // Coleção de carteiras (wallets)
     match /wallets/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      // Permitir criação inicial pelo próprio usuário com o saldo de boas-vindas padrão (R$ 100)
+      // Permitir criação inicial pelo próprio usuário com o saldo zerado (R$ 0)
       allow create: if isOwner(uid) && 
-        request.resource.data.balance == 100.00 && 
+        request.resource.data.balance == 0.00 && 
         request.resource.data.lockedBalance == 0.00;
       // Atualizações de saldo e deleção restritas apenas ao Admin/Backend
       allow update, delete, write: if isAdmin();

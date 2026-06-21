@@ -11,8 +11,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Campos uid e amount são obrigatórios' }, { status: 400 });
     }
 
-    if (amount <= 0) {
-      return NextResponse.json({ error: 'O valor do depósito deve ser maior que zero' }, { status: 400 });
+    if (amount < 15) {
+      return NextResponse.json({ error: 'O valor mínimo do depósito é de R$ 15,00' }, { status: 400 });
     }
 
     const createdAt = new Date().toISOString();

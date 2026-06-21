@@ -200,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const walletRef = doc(db, 'wallets', firebaseUser.uid);
       await setDoc(walletRef, {
         uid: firebaseUser.uid,
-        balance: 100.00, // Saldo inicial cortesia de boas-vindas
+        balance: 0.00, // Começa zerado conforme solicitado
         lockedBalance: 0.00,
         updatedAt: new Date().toISOString()
       });
