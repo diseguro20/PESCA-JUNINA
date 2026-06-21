@@ -126,7 +126,7 @@ export default function Home() {
             <span>•</span>
             <span className="hover:text-junina-gold cursor-pointer transition-colors">Suporte</span>
           </div>
-          <span className="font-medium">© {new Date().getFullYear()} Pesca Online Junina. Desenvolvido para fins de demonstração premium.</span>
+          <span className="font-medium">© {new Date().getFullYear()} Pesca Online Junina. Todos os direitos reservados.</span>
         </footer>
 
       </div>
