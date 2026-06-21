@@ -74,13 +74,25 @@ export async function createPixCharge(
 
   // --- INTEGRAÇÃO REAL VIA PROXY ---
   try {
+    // Sanitizar o nome do pagador para conformidade com as regras do gateway (mínimo 2 palavras, sem números)
+    let sanitizedName = name.replace(/[0-9]/g, '').trim();
+    sanitizedName = sanitizedName.replace(/\s+/g, ' ');
+    if (!sanitizedName) {
+      sanitizedName = "Jogador Junino";
+    } else {
+      const parts = sanitizedName.split(' ').filter(Boolean);
+      if (parts.length < 2) {
+        sanitizedName = `${parts[0] || 'Jogador'} Silva`;
+      }
+    }
+
     const targetUrl = 'https://api.tribopay.com.br/api/public/cash/deposits/pix';
     const payload = {
       amount: Math.round(amount * 100), // Converte para centavos (integer) de acordo com o comportamento real da API
       method: 'pix',
       transactionOrigin: 'cashin',
       payer: {
-        name,
+        name: sanitizedName,
         email
       },
       postbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sua-plataforma.vercel.app'}/api/webhook/tribopay`
