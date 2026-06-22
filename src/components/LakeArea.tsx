@@ -172,6 +172,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   const [statusMessage, setStatusMessage] = useState('Escolha o valor e jogue a linha!');
   const [caughtFishData, setCaughtFishData] = useState<any>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [fishermanSpeech, setFishermanSpeech] = useState('Bora pescar, compadre! Escolha a aposta e lança a linha!');
   
   // Elementos do Lago, Partículas e Física
   const fishListRef = useRef<Fish[]>([]);
@@ -673,6 +674,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
     setGameStatus('preparing');
     updateRodState('casting');
     setStatusMessage('Preparando arremesso caipira...');
+    setFishermanSpeech('Lá vai o arremesso! Segura firme, sô!');
     playSound('cast');
 
     // Boia na ponta da vara
@@ -693,6 +695,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         setGameStatus('fishing');
         updateRodState('idle');
         setStatusMessage('Pescando... Aguarde o puxão da boia!');
+        setFishermanSpeech('Silêncio agora... Senão espanta os peixe!');
         createSplashParticles(targetX, targetY);
         playSound('splash');
         
@@ -715,6 +718,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       setTimeout(() => {
         bobberTwitchRef.current = true;
         playSound('bite');
+        setFishermanSpeech('Opa! Sentiu o beliscão? Tá de olho!');
         setTimeout(() => {
           bobberTwitchRef.current = false;
         }, 180);
@@ -723,6 +727,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       setTimeout(() => {
         bobberTwitchRef.current = true;
         playSound('bite');
+        setFishermanSpeech('Fica esperto, tá pegando!');
         setTimeout(() => {
           bobberTwitchRef.current = false;
           // Fisgou! Boia afunda
@@ -730,6 +735,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           updateRodState('bending');
           setGameStatus('caught');
           setCaughtFishData(result);
+          setFishermanSpeech('Fisgou, sô! Puxa a carretilha, compadre!');
           setStatusMessage('FISGOU! Puxe a linha sô!');
           createSplashParticles(bX, bY);
           playSound('splash');
@@ -745,6 +751,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       setIsProcessing(false);
       bobberUnderRef.current = false;
       bobberTwitchRef.current = false;
+      setFishermanSpeech('Eita, deu ruim na pescaria...');
       setStatusMessage(error.message || 'Erro ao pescar.');
     }
   };
@@ -760,6 +767,12 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         setIsProcessing(false);
         bobberUnderRef.current = false;
         setStatusMessage('Escolha o valor e jogue a linha!');
+        
+        if (result.winAmount > 0) {
+          setFishermanSpeech('Eita bicho bonito! Esse deu bom demais!');
+        } else {
+          setFishermanSpeech('Uai, escapou! Ou veio só uma bota velha...');
+        }
         
         onRoundComplete({
           winAmount: result.winAmount,
@@ -906,6 +919,51 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
             </div>
           </div>
         )}
+
+        <style jsx global>{`
+          @keyframes fishermanWiggle {
+            0% { transform: translate(0, 0) rotate(0deg) scaleX(-1); }
+            25% { transform: translate(-2px, -1px) rotate(-1.5deg) scaleX(-1); }
+            50% { transform: translate(1px, -2px) rotate(1.5deg) scaleX(-1); }
+            75% { transform: translate(-1px, 1px) rotate(-1.5deg) scaleX(-1); }
+            100% { transform: translate(0, 0) rotate(0deg) scaleX(-1); }
+          }
+          .animate-fisherman-wiggle {
+            animation: fishermanWiggle 0.22s infinite;
+          }
+          @keyframes fishermanIdle {
+            0% { transform: scale(1) scaleX(-1); }
+            100% { transform: scale(1.02) scaleX(-1); }
+          }
+          .animate-fisherman-idle {
+            animation: fishermanIdle 2s ease-in-out infinite alternate;
+          }
+        `}</style>
+
+        {/* O Pescador Caipira Animado */}
+        <div 
+          className={`absolute right-[-10px] bottom-[-25px] w-52 h-52 pointer-events-none z-14 transition-all duration-300 origin-bottom ${
+            gameStatus === 'preparing' ? 'animate-bounce' : 
+            gameStatus === 'caught' ? 'animate-fisherman-wiggle' : 
+            'animate-fisherman-idle'
+          }`}
+        >
+          <img 
+            src="/images/caipira_fisherman.png" 
+            alt="Pescador Caipira" 
+            className="w-full h-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
+          />
+        </div>
+
+        {/* Balão de Fala do Pescador */}
+        <div 
+          className="absolute right-[125px] bottom-[155px] z-20 max-w-[155px] bg-black/85 border border-junina-gold/40 px-3.5 py-2.5 rounded-2xl text-[9px] font-black text-junina-gold uppercase tracking-widest text-center shadow-[0_4px_12px_rgba(0,0,0,0.5)] backdrop-blur-sm animate-fade-in pointer-events-none"
+          style={{ animationDuration: '0.35s' }}
+        >
+          {/* Seta do balão */}
+          <div className="absolute bottom-[-5px] right-6 w-2.5 h-2.5 bg-black/85 border-r border-b border-junina-gold/40 transform rotate-45" />
+          <span>{fishermanSpeech}</span>
+        </div>
 
         {/* 5. A Vara de Pesca (SVG premium com passadores e molinete) */}
         <div className="absolute right-[-15px] bottom-[-20px] w-64 h-64 pointer-events-none z-15">
