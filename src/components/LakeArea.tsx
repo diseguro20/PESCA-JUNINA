@@ -788,14 +788,6 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col relative">
-      
-      {/* Estilo local para Vitórias Régias e balanço */}
-      <style jsx global>{`
-        @keyframes waterLiliesSway {
-          0% { transform: rotate(-3deg) translateY(0px); }
-          100% { transform: rotate(3deg) translateY(2.5px); }
-        }
-      `}</style>
 
       {/* BARRA SUPERIOR DO LAGO */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20 pointer-events-auto">
@@ -819,24 +811,10 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       {/* ÁREA DO LAGO */}
       <div 
         ref={lakeRef}
-        className="flex-1 w-full rounded-3xl border border-white/10 water-surface relative select-none shadow-2xl overflow-hidden flex flex-col justify-end min-h-[380px]"
+        className="flex-1 w-full rounded-3xl border border-junina-gold/20 water-surface relative select-none shadow-[0_0_40px_rgba(3,7,15,0.7),_inset_0_0_20px_rgba(0,191,255,0.05)] overflow-hidden flex flex-col justify-end min-h-[380px]"
       >
         {/* Camada superior do lago (brilho e caustics) */}
         <div className="absolute inset-0 bg-gradient-to-b from-blue-400/5 via-transparent to-black/55 pointer-events-none z-1" />
-
-        {/* Vitórias-régias balançando suavemente */}
-        <div 
-          className="absolute top-[22%] left-[10%] w-14 h-7 bg-emerald-900/45 rounded-full border border-emerald-800/35 pointer-events-none z-2"
-          style={{ animation: 'waterLiliesSway 4s ease-in-out infinite alternate' }}
-        >
-          <div className="w-3.5 h-3.5 bg-pink-400/30 rounded-full absolute right-2.5 top-[-2px] animate-pulse" />
-        </div>
-        <div 
-          className="absolute top-[52%] right-[14%] w-18 h-9 bg-emerald-900/40 rounded-full border border-emerald-800/30 pointer-events-none z-2"
-          style={{ animation: 'waterLiliesSway 5s ease-in-out infinite alternate-reverse' }}
-        >
-          <div className="w-4 h-4 bg-pink-400/25 rounded-full absolute left-5 top-[-3px] animate-pulse" />
-        </div>
 
         {/* Canvas de alta performance para partículas de bolhas e splash */}
         <canvas 
