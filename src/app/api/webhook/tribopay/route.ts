@@ -9,7 +9,11 @@ export async function POST(req: Request) {
     console.log("[Webhook TriboPay] Recebido payload:", JSON.stringify(body));
 
     // Determinar se é Webhook de Depósito (Cash-In) ou Saque (Cash-Out)
-    const isDeposit = !!body.pix || body.hasOwnProperty('payer') || body.id?.startsWith('dep_');
+    const isDeposit = !!body.pix || 
+                      body.hasOwnProperty('payer') || 
+                      body.hasOwnProperty('transaction_hash') || 
+                      body.hasOwnProperty('payment_method') || 
+                      body.id?.startsWith('dep_');
 
     if (isDeposit) {
       return await handleDepositWebhook(body);
@@ -26,7 +30,7 @@ export async function POST(req: Request) {
  * Trata notificações de Depósito (Cash-In)
  */
 async function handleDepositWebhook(body: any) {
-  const depositId = body.id;
+  const depositId = body.transaction_hash || body.id;
   const status = body.status; // 'paid', 'expired', 'refunded', etc.
 
   if (!depositId || !status) {

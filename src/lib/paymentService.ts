@@ -86,28 +86,69 @@ export async function createPixCharge(
       }
     }
 
-    const targetUrl = 'https://api.tribopay.com.br/api/public/cash/deposits/pix';
-    const payload = {
-      amount: Math.round(amount * 100), // Converte para centavos (integer) de acordo com o comportamento real da API
-      method: 'pix',
-      transactionOrigin: 'cashin',
-      payer: {
-        name: sanitizedName,
-        email
-      },
-      postbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sua-plataforma.vercel.app'}/api/webhook/tribopay`
-    };
+    const offerHash = process.env.TRIBOPAY_OFFER_HASH;
 
-    const response = await callProxyForwarder(targetUrl, payload, 'POST');
-    const resource = response.data || response;
+    if (offerHash) {
+      // Usar a API v1 de Checkout/Transactions
+      const targetUrl = 'https://api.tribopay.com.br/api/public/v1/transactions';
+      const payload = {
+        offer_hash: offerHash,
+        amount: Math.round(amount * 100), // Converte para centavos (integer)
+        payment_method: 'pix',
+        customer: {
+          name: sanitizedName,
+          email: email
+        },
+        cart: {
+          items: {
+            title: "Saldo de Jogo",
+            quantity: 1,
+            price: Math.round(amount * 100)
+          }
+        },
+        postback_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/tribopay`,
+        postbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/tribopay`
+      };
 
-    return {
-      success: true,
-      id: resource.id,
-      qrCodeText: resource.pix?.code || '',
-      qrCodeImage: resource.pix?.imageBase64 || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(resource.pix?.code || '')}`,
-      amount
-    };
+      const response = await callProxyForwarder(targetUrl, payload, 'POST');
+      const resource = response.data || response;
+
+      const transactionId = resource.transaction_hash || resource.hash || resource.id;
+      const qrCodeText = resource.pix?.qrcode || resource.pix?.code || resource.payment_response?.qrcode || '';
+      const qrCodeImage = resource.pix?.qrcode_image || resource.pix?.imageBase64 || resource.payment_response?.qrcode_image || '';
+
+      return {
+        success: true,
+        id: transactionId,
+        qrCodeText,
+        qrCodeImage: qrCodeImage || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`,
+        amount
+      };
+    } else {
+      // Fallback para a API de depósitos legada (Cash-In)
+      const targetUrl = 'https://api.tribopay.com.br/api/public/cash/deposits/pix';
+      const payload = {
+        amount: Math.round(amount * 100),
+        method: 'pix',
+        transactionOrigin: 'cashin',
+        payer: {
+          name: sanitizedName,
+          email
+        },
+        postbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/tribopay`
+      };
+
+      const response = await callProxyForwarder(targetUrl, payload, 'POST');
+      const resource = response.data || response;
+
+      return {
+        success: true,
+        id: resource.id,
+        qrCodeText: resource.pix?.code || '',
+        qrCodeImage: resource.pix?.imageBase64 || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(resource.pix?.code || '')}`,
+        amount
+      };
+    }
   } catch (error: any) {
     console.error("Erro ao criar cobrança Pix na TriboPay:", error);
     throw error;
@@ -177,8 +218,16 @@ export async function verifyDepositStatus(depositId: string): Promise<any> {
     return { status: 'paid' };
   }
   try {
-    const targetUrl = `https://api.tribopay.com.br/api/public/cash/deposits/${depositId}`;
-    const response = await callProxyForwarder(targetUrl, null, 'GET');
+    // Tenta primeiro no endpoint v1/transactions
+    let response;
+    try {
+      const targetUrl = `https://api.tribopay.com.br/api/public/v1/transactions/${depositId}`;
+      response = await callProxyForwarder(targetUrl, null, 'GET');
+    } catch (e) {
+      // Fallback para o endpoint legado se v1 falhar
+      const targetUrl = `https://api.tribopay.com.br/api/public/cash/deposits/${depositId}`;
+      response = await callProxyForwarder(targetUrl, null, 'GET');
+    }
     return response.data || response;
   } catch (error) {
     console.error(`Erro ao consultar status do depósito ${depositId}:`, error);
