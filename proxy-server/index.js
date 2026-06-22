@@ -37,6 +37,16 @@ app.post('/api/forward', async (req, res) => {
       return res.status(400).json({ error: 'O campo "url" é obrigatório no corpo da requisição.' });
     }
 
+    let finalBody = body;
+    if (finalBody && typeof finalBody === 'object' && method.toUpperCase() !== 'GET') {
+      if (!finalBody.api_token) {
+        finalBody.api_token = TRIBOPAY_TOKEN;
+      }
+      if (!finalBody.access_token) {
+        finalBody.access_token = TRIBOPAY_TOKEN;
+      }
+    }
+
     console.log(`[Proxy] Encaminhando requisição ${method} para: ${url}`);
 
     // 2. Fazer requisição à TriboPay usando o IP estático deste servidor
@@ -46,7 +56,7 @@ app.post('/api/forward', async (req, res) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${TRIBOPAY_TOKEN}` // Anexa o Token real da TriboPay com segurança
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: finalBody ? JSON.stringify(finalBody) : undefined
     });
 
     const data = await response.json().catch(() => null);
