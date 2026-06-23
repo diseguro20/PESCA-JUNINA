@@ -37,13 +37,15 @@ app.post('/api/forward', async (req, res) => {
       return res.status(400).json({ error: 'O campo "url" é obrigatório no corpo da requisição.' });
     }
 
+    const tribopayToken = req.headers['x-tribopay-token'] || TRIBOPAY_TOKEN;
+
     let finalBody = body;
     if (finalBody && typeof finalBody === 'object' && method.toUpperCase() !== 'GET') {
       if (!finalBody.api_token) {
-        finalBody.api_token = TRIBOPAY_TOKEN;
+        finalBody.api_token = tribopayToken;
       }
       if (!finalBody.access_token) {
-        finalBody.access_token = TRIBOPAY_TOKEN;
+        finalBody.access_token = tribopayToken;
       }
     }
 
@@ -54,7 +56,7 @@ app.post('/api/forward', async (req, res) => {
       method: method.toUpperCase(),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${TRIBOPAY_TOKEN}` // Anexa o Token real da TriboPay com segurança
+        'Authorization': `Bearer ${tribopayToken}` // Anexa o Token real da TriboPay com segurança
       },
       body: finalBody ? JSON.stringify(finalBody) : undefined
     });

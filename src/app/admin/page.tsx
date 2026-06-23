@@ -20,7 +20,8 @@ import {
   Save, 
   Coins, 
   HelpCircle,
-  Eye
+  Eye,
+  Plus
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -44,6 +45,53 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'deposits' | 'withdrawals' | 'users' | 'game' | 'logs'>('deposits');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Estados para Adição de Saldo
+  const [addBalanceUserId, setAddBalanceUserId] = useState<string | null>(null);
+  const [addBalanceAmount, setAddBalanceAmount] = useState<string>('');
+  const [addingBalance, setAddingBalance] = useState(false);
+
+  const handleAddBalance = async (targetUid: string, email: string) => {
+    if (!user) {
+      setErrorMsg("Sessão expirada. Por favor, faça login novamente.");
+      return;
+    }
+    const val = parseFloat(addBalanceAmount);
+    if (isNaN(val) || val <= 0) {
+      setErrorMsg("Por favor, digite um valor numérico válido e maior que zero para adicionar saldo.");
+      return;
+    }
+
+    setAddingBalance(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch('/api/admin/users/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminUid: user.uid,
+          targetUid,
+          amount: val
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao adicionar saldo');
+      }
+
+      setSuccessMsg(`Adicionado R$ ${val.toFixed(2)} de saldo para o jogador ${email} com sucesso!`);
+      setAddBalanceUserId(null);
+      setAddBalanceAmount('');
+      loadAdminData();
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (e: any) {
+      setErrorMsg(e.message || "Falha ao adicionar saldo.");
+    } finally {
+      setAddingBalance(false);
+    }
+  };
 
   // Estados de Configuração do Jogo
   const [minBetInput, setMinBetInput] = useState('1.00');
@@ -315,7 +363,7 @@ export default function AdminPage() {
         {/* 3. CONTEÚDO DAS ABAS */}
 
         {/* ABA: DEPÓSITOS */}
-        {activeTab === 'deposits' && (
+        <div className={activeTab === 'deposits' ? 'block' : 'hidden'}>
           <div className="glass-premium rounded-3xl overflow-hidden border border-white/5 shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -377,10 +425,10 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ABA: SAQUES */}
-        {activeTab === 'withdrawals' && (
+        <div className={activeTab === 'withdrawals' ? 'block' : 'hidden'}>
           <div className="glass-premium rounded-3xl overflow-hidden border border-white/5 shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -433,10 +481,10 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ABA: USUÁRIOS */}
-        {activeTab === 'users' && (
+        <div className={activeTab === 'users' ? 'block' : 'hidden'}>
           <div className="glass-premium rounded-3xl overflow-hidden border border-white/5 shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -471,7 +519,47 @@ export default function AdminPage() {
                           {u.status}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-bold text-white">R$ {(u.balance || 0).toFixed(2)}</td>
+                      <td className="py-4 px-6 font-bold text-white">
+                        {addBalanceUserId === u.uid ? (
+                          <div className="flex items-center gap-1.5 max-w-[150px]">
+                            <span className="text-[10px] text-gray-400">R$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={addBalanceAmount}
+                              onChange={(e) => setAddBalanceAmount(e.target.value)}
+                              placeholder="0.00"
+                              className="w-16 bg-white/5 border border-white/10 rounded-lg py-1 px-1.5 text-center text-xs text-white focus:outline-none focus:border-junina-gold"
+                            />
+                            <button
+                              onClick={() => handleAddBalance(u.uid, u.email)}
+                              disabled={addingBalance}
+                              className="p-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-lg transition-colors cursor-pointer"
+                              title="Confirmar"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => { setAddBalanceUserId(null); setAddBalanceAmount(''); }}
+                              className="p-1 bg-junina-red/20 hover:bg-junina-red/30 text-junina-red border border-junina-red/30 rounded-lg transition-colors cursor-pointer"
+                              title="Cancelar"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span>R$ {(u.balance || 0).toFixed(2)}</span>
+                            <button
+                              onClick={() => { setAddBalanceUserId(u.uid); setAddBalanceAmount(''); }}
+                              className="text-junina-gold hover:text-white transition-colors p-1"
+                              title="Adicionar Saldo"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                       <td className="py-4 px-6 text-gray-400">R$ {(u.lockedBalance || 0).toFixed(2)}</td>
                       <td className="py-4 px-6 text-right">
                         {u.uid !== user.uid ? (
@@ -496,10 +584,10 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ABA: CONFIGURAR LAGO */}
-        {activeTab === 'game' && (
+        <div className={activeTab === 'game' ? 'block' : 'hidden'}>
           <form onSubmit={handleSaveSettings} className="glass-premium p-6 rounded-3xl flex flex-col gap-6">
             <h3 className="text-lg font-black text-white uppercase tracking-wider">Ajustes das Regras do Lago</h3>
             
@@ -576,10 +664,10 @@ export default function AdminPage() {
               <Save className="w-4 h-4" /> {savingSettings ? 'SALVANDO REGRAS...' : 'SALVAR REGRAS DO LAGO'}
             </button>
           </form>
-        )}
+        </div>
 
         {/* ABA: AUDITORIA / LOGS */}
-        {activeTab === 'logs' && (
+        <div className={activeTab === 'logs' ? 'block' : 'hidden'}>
           <div className="glass-premium rounded-3xl overflow-hidden border border-white/5 shadow-xl">
             <div className="overflow-x-auto animate-fade-in">
               <table className="w-full text-left border-collapse">
@@ -616,7 +704,7 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
-        )}
+        </div>
 
       </div>
     </JuninaBackground>
