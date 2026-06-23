@@ -257,10 +257,11 @@ export async function verifyDepositStatus(depositId: string): Promise<any> {
     return { status: 'paid' };
   }
   try {
+    const tribopayToken = process.env.TRIBOPAY_TOKEN || '';
     // Tenta primeiro no endpoint v1/transactions
     let response;
     try {
-      const targetUrl = `https://api.tribopay.com.br/api/public/v1/transactions/${depositId}`;
+      const targetUrl = `https://api.tribopay.com.br/api/public/v1/transactions/${depositId}?api_token=${tribopayToken}`;
       response = await callProxyForwarder(targetUrl, null, 'GET');
     } catch (e) {
       // Fallback para o endpoint legado se v1 falhar

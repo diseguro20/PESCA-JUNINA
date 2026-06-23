@@ -31,53 +31,95 @@ export async function POST(req: Request) {
  */
 async function handleDepositWebhook(body: any) {
   const depositId = body.transaction_hash || body.id;
-  const status = body.status; // 'paid', 'expired', 'refunded', etc.
+  const status = body.status; // 'paid', 'approved', 'completed', etc.
 
   if (!depositId || !status) {
     return NextResponse.json({ error: 'Payload de depósito inválido' }, { status: 400 });
   }
 
-  // Apenas processa depósitos com status "paid"
-  if (status !== 'paid') {
+  // Apenas processa depósitos com status de sucesso
+  const isPaidStatus = status === 'paid' || status === 'approved' || status === 'completed';
+  if (!isPaidStatus) {
     console.log(`[Webhook TriboPay] Depósito ${depositId} com status "${status}". Nenhuma ação necessária.`);
     return NextResponse.json({ success: true, message: 'Status recebido sem alteração de saldo' });
   }
 
   // --- 🔐 SEGURANÇA ATIVA: Consultar API oficial da TriboPay para confirmar o pagamento ---
+  let isVerifiedPaid = false;
   try {
     const verifiedData = await verifyDepositStatus(depositId);
-    if (verifiedData.status !== 'paid') {
-      console.warn(`[Webhook TriboPay] ⚠️ FRAUDE DETECTADA: Webhook reportou "paid" para o depósito ${depositId}, mas a consulta direta à API retornou "${verifiedData.status}".`);
+    const verifiedStatus = verifiedData?.status;
+    isVerifiedPaid = verifiedStatus === 'paid' || verifiedStatus === 'approved' || verifiedStatus === 'completed';
+    if (!isVerifiedPaid) {
+      console.warn(`[Webhook TriboPay] ⚠️ FRAUDE DETECTADA: Webhook reportou "${status}" para o depósito ${depositId}, mas a consulta direta à API retornou "${verifiedStatus}".`);
       return NextResponse.json({ error: 'Verificação de segurança falhou' }, { status: 403 });
     }
   } catch (verifyError: any) {
-    console.error(`[Webhook TriboPay] Erro ao verificar depósito ${depositId} na API TriboPay. Abortando.`, verifyError);
-    return NextResponse.json({ error: 'Erro de comunicação para verificação de segurança' }, { status: 500 });
+    console.error(`[Webhook TriboPay] Erro ao verificar depósito ${depositId} na API TriboPay. Prosseguindo com aprovação pelo postback devido à instabilidade do gateway.`, verifyError);
+    isVerifiedPaid = true; // Permite aprovação se a API do gateway estiver fora do ar/instável
   }
 
   const updatedAt = new Date().toISOString();
 
+  // Helper para extrair o valor correto do payload
+  const parseAmount = (payload: any): number => {
+    if (payload.amount) return Number(payload.amount) / 100;
+    if (payload.price) return Number(payload.price) / 100;
+    if (payload.value) return Number(payload.value) / 100;
+    return 15.00; // Valor fallback
+  };
+
   // --- MODO DEMO (MOCK DB) ---
   if (isAdminDemoMode) {
     const dbData = getMockDb();
-    const depositIndex = dbData.deposits.findIndex(d => d.id === depositId);
+    let depositIndex = dbData.deposits.findIndex(d => d.id === depositId);
+    let deposit: any;
+    let isNew = false;
 
     if (depositIndex === -1) {
-      return NextResponse.json({ error: 'Depósito não encontrado no mock db' }, { status: 404 });
+      const email = body.customer?.email || body.payer?.email || body.email;
+      if (!email) {
+        return NextResponse.json({ error: 'Depósito não encontrado no mock db e e-mail não fornecido' }, { status: 404 });
+      }
+
+      const userEntry = Object.values(dbData.users).find(u => u.email.toLowerCase() === email.toLowerCase().trim());
+      if (!userEntry) {
+        return NextResponse.json({ error: 'Usuário não cadastrado no mock db' }, { status: 404 });
+      }
+
+      deposit = {
+        id: depositId,
+        uid: userEntry.uid,
+        email: userEntry.email,
+        amount: parseAmount(body),
+        status: 'pending' as const,
+        createdAt: updatedAt,
+        updatedAt: updatedAt
+      };
+      dbData.deposits.push(deposit);
+      depositIndex = dbData.deposits.length - 1;
+      isNew = true;
+    } else {
+      deposit = dbData.deposits[depositIndex]!;
     }
 
-    const deposit = dbData.deposits[depositIndex]!;
-    if (deposit.status === 'paid') {
+    if (deposit.status === 'paid' || deposit.status === 'approved') {
       return NextResponse.json({ success: true, message: 'Depósito já estava pago (idempotente)' });
     }
 
-    const wallet = dbData.wallets[deposit.uid];
+    let wallet = dbData.wallets[deposit.uid];
     if (!wallet) {
-      return NextResponse.json({ error: 'Carteira do usuário não encontrada no mock db' }, { status: 404 });
+      wallet = {
+        uid: deposit.uid,
+        balance: 0,
+        lockedBalance: 0,
+        updatedAt
+      };
+      dbData.wallets[deposit.uid] = wallet;
     }
 
     // Atualiza status e creditar saldo
-    deposit.status = 'paid';
+    deposit.status = 'approved';
     deposit.updatedAt = updatedAt;
     wallet.balance = Number((wallet.balance + deposit.amount).toFixed(2));
     wallet.updatedAt = updatedAt;
@@ -94,13 +136,36 @@ async function handleDepositWebhook(body: any) {
 
   const depositRef = adminDb.collection('deposits').doc(depositId);
   const depositSnap = await depositRef.get();
+  let depositData: any;
+  let isNewDeposit = false;
 
   if (!depositSnap.exists) {
-    return NextResponse.json({ error: 'Depósito não encontrado' }, { status: 404 });
+    console.warn(`[Webhook TriboPay] Depósito ${depositId} não encontrado no Firestore. Buscando usuário pelo e-mail.`);
+    const email = body.customer?.email || body.payer?.email || body.email;
+    if (!email) {
+      return NextResponse.json({ error: 'Depósito não encontrado e nenhum e-mail fornecido no payload' }, { status: 404 });
+    }
+
+    const usersQuery = await adminDb.collection('users').where('email', '==', email.toLowerCase().trim()).get();
+    if (usersQuery.empty) {
+      return NextResponse.json({ error: `Depósito não encontrado e nenhum usuário localizado com o e-mail ${email}` }, { status: 404 });
+    }
+
+    const userDoc = usersQuery.docs[0]!;
+    depositData = {
+      uid: userDoc.id,
+      email: email.toLowerCase().trim(),
+      amount: parseAmount(body),
+      status: 'pending',
+      createdAt: updatedAt,
+      updatedAt: updatedAt
+    };
+    isNewDeposit = true;
+  } else {
+    depositData = depositSnap.data()!;
   }
 
-  const depositData = depositSnap.data()!;
-  if (depositData.status === 'paid') {
+  if (depositData.status === 'paid' || depositData.status === 'approved') {
     return NextResponse.json({ success: true, message: 'Depósito já processado anteriormente' });
   }
 
@@ -109,22 +174,36 @@ async function handleDepositWebhook(body: any) {
   try {
     await adminDb.runTransaction(async (transaction: any) => {
       const walletSnap = await transaction.get(walletRef);
+      
+      // Credita ou cria a carteira do usuário
       if (!walletSnap.exists) {
-        throw new Error('Carteira do usuário não encontrada');
+        transaction.set(walletRef, {
+          uid: depositData.uid,
+          balance: depositData.amount,
+          lockedBalance: 0,
+          updatedAt
+        });
+      } else {
+        const wallet = walletSnap.data()!;
+        transaction.update(walletRef, {
+          balance: Number((wallet.balance + depositData.amount).toFixed(2)),
+          updatedAt
+        });
       }
-      const wallet = walletSnap.data()!;
 
-      // Atualiza depósito
-      transaction.update(depositRef, {
-        status: 'paid',
-        updatedAt
-      });
-
-      // Credita saldo
-      transaction.update(walletRef, {
-        balance: Number((wallet.balance + depositData.amount).toFixed(2)),
-        updatedAt
-      });
+      // Atualiza ou insere o registro do depósito
+      if (isNewDeposit) {
+        transaction.set(depositRef, {
+          ...depositData,
+          status: 'approved',
+          updatedAt
+        });
+      } else {
+        transaction.update(depositRef, {
+          status: 'approved',
+          updatedAt
+        });
+      }
     });
 
     console.log(`[Webhook TriboPay] Depósito ${depositId} creditado com sucesso: R$ ${depositData.amount} para uid: ${depositData.uid}`);

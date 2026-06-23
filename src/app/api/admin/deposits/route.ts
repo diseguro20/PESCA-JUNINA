@@ -28,13 +28,19 @@ export async function POST(req: Request) {
       }
       const deposit = dbData.deposits[depositIndex]!;
 
-      if (deposit.status !== 'pending') {
+      if (deposit.status === 'approved' || deposit.status === 'rejected') {
         return NextResponse.json({ error: 'Este depósito já foi processado' }, { status: 400 });
       }
 
-      const userWallet = dbData.wallets[deposit.uid];
+      let userWallet = dbData.wallets[deposit.uid];
       if (!userWallet) {
-        return NextResponse.json({ error: 'Carteira do usuário não encontrada' }, { status: 404 });
+        userWallet = {
+          uid: deposit.uid,
+          balance: 0,
+          lockedBalance: 0,
+          updatedAt
+        };
+        dbData.wallets[deposit.uid] = userWallet;
       }
 
       // Processar
@@ -86,7 +92,7 @@ export async function POST(req: Request) {
       }
       const depositData = depositSnap.data()!;
 
-      if (depositData.status !== 'pending') {
+      if (depositData.status === 'approved' || depositData.status === 'rejected') {
         throw new Error('Este depósito já foi processado');
       }
 
@@ -96,17 +102,22 @@ export async function POST(req: Request) {
       // 3. Atualizar status e saldo
       if (action === 'approve') {
         if (!walletSnap.exists) {
-          throw new Error('Carteira do usuário não encontrada');
+          transaction.set(walletDocRef, {
+            uid: depositData.uid,
+            balance: depositData.amount,
+            lockedBalance: 0,
+            updatedAt
+          });
+        } else {
+          const walletData = walletSnap.data()!;
+          transaction.update(walletDocRef, {
+            balance: Number((walletData.balance + depositData.amount).toFixed(2)),
+            updatedAt
+          });
         }
-        const walletData = walletSnap.data()!;
 
         transaction.update(depositDocRef, {
           status: 'approved',
-          updatedAt
-        });
-
-        transaction.update(walletDocRef, {
-          balance: Number((walletData.balance + depositData.amount).toFixed(2)),
           updatedAt
         });
       } else {
