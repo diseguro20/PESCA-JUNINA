@@ -938,12 +938,22 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           .animate-fisherman-idle {
             animation: fishermanIdle 2s ease-in-out infinite alternate;
           }
+          @keyframes fishermanCast {
+            0% { transform: scale(1) scaleX(-1) rotate(0deg) translate(0, 0); }
+            12% { transform: scale(1) scaleX(-1) rotate(18deg) translate(-12px, 6px); }
+            35% { transform: scale(1.08) scaleX(-1) rotate(-25deg) translate(20px, -15px); }
+            65% { transform: scale(1.03) scaleX(-1) rotate(-6deg) translate(6px, -4px); }
+            100% { transform: scale(1) scaleX(-1) rotate(0deg) translate(0, 0); }
+          }
+          .animate-fisherman-cast {
+            animation: fishermanCast 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          }
         `}</style>
 
         {/* O Pescador Caipira Animado */}
         <div 
           className={`absolute right-[-10px] bottom-[-25px] w-52 h-52 pointer-events-none z-14 transition-all duration-300 origin-bottom ${
-            gameStatus === 'preparing' ? 'animate-bounce' : 
+            gameStatus === 'preparing' ? 'animate-fisherman-cast' : 
             gameStatus === 'caught' ? 'animate-fisherman-wiggle' : 
             'animate-fisherman-idle'
           }`}
@@ -963,64 +973,6 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           {/* Seta do balão */}
           <div className="absolute bottom-[-5px] right-6 w-2.5 h-2.5 bg-black/85 border-r border-b border-junina-gold/40 transform rotate-45" />
           <span>{fishermanSpeech}</span>
-        </div>
-
-        {/* 5. A Vara de Pesca (SVG premium com passadores e molinete) */}
-        <div className="absolute right-[-15px] bottom-[-20px] w-64 h-64 pointer-events-none z-15">
-          <svg 
-            className="w-full h-full overflow-visible" 
-            viewBox="0 0 200 200"
-            style={{
-              transform: rodState === 'casting' 
-                ? 'rotate(-12deg) translate(-12px, 12px)' 
-                : rodState === 'bending'
-                ? 'rotate(4deg) translate(4px, -4px)'
-                : 'rotate(0deg)',
-              transformOrigin: '170px 180px',
-              transition: 'transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.25)'
-            }}
-          >
-            {/* Cabo de madeira da vara */}
-            <path d="M165,185 L180,165" stroke="#2c1a0a" strokeWidth="8" strokeLinecap="round" />
-            <path d="M167,183 L178,167" stroke="#ffd166" strokeWidth="3" strokeLinecap="round" />
-            
-            {/* Carretilha/Molinete Premium */}
-            <g transform="translate(155, 155)">
-              <circle cx="10" cy="10" r="9" fill="#2d3748" stroke="#1a202c" strokeWidth="2" />
-              <rect x="7" y="3" width="6" height="14" rx="2" fill="#ffd166" />
-              <circle cx="10" cy="10" r="3.5" fill="#e2e8f0" />
-              <g className={gameStatus === 'caught' ? 'origin-center animate-spin' : ''} style={{ transformOrigin: '10px 10px', animationDuration: '1s' }}>
-                <path d="M10,10 L3,2" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-                <circle cx="3" cy="2" r="3" fill="#e63946" />
-              </g>
-            </g>
-
-            {/* Corpo Flexível Dinâmico da Vara (Bending Path) */}
-            <path 
-              id="rod-body-path"
-              d={`M167,169 C145,${120 + (rodTipRef.current.y - 95) * 0.45} 108,${82 + (rodTipRef.current.y - 95) * 0.75} ${rodTipRef.current.x} ${rodTipRef.current.y}`} 
-              fill="none" 
-              stroke="#6a401c" 
-              strokeWidth="3.2" 
-              strokeLinecap="round" 
-            />
-
-            {/* Linha saindo do molinete */}
-            <path 
-              id="rod-line-path"
-              d={`M165,165 L125,${115 + (rodTipRef.current.y - 95) * 0.2} L95,${95 + (rodTipRef.current.y - 95) * 0.5} L${rodTipRef.current.x} ${rodTipRef.current.y}`} 
-              fill="none" 
-              stroke="rgba(255,255,255,0.3)" 
-              strokeWidth="0.8" 
-            />
-
-            {/* Passadores */}
-            <g>
-              <circle id="passador-1" cx={125} cy={115 + (rodTipRef.current.y - 95) * 0.2} r="2.5" fill="none" stroke="#ffd166" strokeWidth="1" />
-              <circle id="passador-2" cx={95} cy={95 + (rodTipRef.current.y - 95) * 0.5} r="2" fill="none" stroke="#ffd166" strokeWidth="1" />
-              <circle id="passador-3" cx={rodTipRef.current.x} cy={rodTipRef.current.y} r="1.5" fill="none" stroke="#ffd166" strokeWidth="1" />
-            </g>
-          </svg>
         </div>
 
       </div>
