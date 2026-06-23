@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
@@ -21,6 +21,17 @@ export const HeaderHUD: React.FC = () => {
   const { user, logout } = useAuth();
   const { wallet } = useGame();
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   if (!user) return null;
 
@@ -138,9 +149,17 @@ export const HeaderHUD: React.FC = () => {
 
       </div>
 
+      {/* BACKDROP OVERLAY FOR MOBILE DRAWER */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* DRAWER / MENU LATERAL MOBILE */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 w-full glass-premium shadow-2xl border-b border-junina-gold/30 md:hidden animate-fade-in flex flex-col p-4 gap-4 z-50">
+        <div className="absolute top-full left-0 right-0 w-full max-h-[calc(100vh-4.5rem)] overflow-y-auto no-scrollbar bg-gradient-to-b from-[#180e07] via-[#090f1d] to-[#040710] shadow-2xl border-b border-junina-gold/30 md:hidden animate-fade-in flex flex-col p-4 gap-4 z-50">
           
           {/* Usuário Mobile */}
           <div className="flex items-center gap-3 bg-junina-blue-deep/50 p-3 rounded-2xl border border-junina-gold/15">

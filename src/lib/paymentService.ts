@@ -41,7 +41,18 @@ async function callProxyForwarder(url: string, body: any, method: 'POST' | 'GET'
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || data.message || `Erro no proxy de pagamento (status: ${res.status})`);
+    let errMsg = data.error || data.message || `Erro no proxy de pagamento (status: ${res.status})`;
+    
+    // Tratar erro da API legada (Cash-in)
+    if (data.errors?.error_code === 'PAYMENT_PROCESSING_ERROR' || errMsg.includes('processar o pagamento')) {
+      errMsg = "Erro TriboPay (PAYMENT_PROCESSING_ERROR): A API legada de depósitos falhou. É obrigatório configurar a variável de ambiente TRIBOPAY_OFFER_HASH no seu servidor/Vercel com uma Oferta de Checkout ativa do painel da TriboPay para migrar para a API v1.";
+    }
+    // Tratar erro da API v1
+    else if (url.includes('v1/transactions') && res.status === 500) {
+      errMsg = `Erro TriboPay v1 (Status 500): Falha ao gerar transação de checkout. Certifique-se de que o TRIBOPAY_OFFER_HASH (${body?.offer_hash || 'não definido'}) é uma oferta de checkout PIX ativa e válida no seu painel da TriboPay, e que o token da API está correto.`;
+    }
+    
+    throw new Error(errMsg);
   }
 
   return data;
@@ -88,7 +99,7 @@ export async function createPixCharge(
 
     const offerHash = process.env.TRIBOPAY_OFFER_HASH;
 
-    if (offerHash) {
+    if (offerHash && offerHash !== 'your_offer_hash_here' && offerHash.trim() !== '') {
       // Usar a API v1 de Checkout/Transactions
       const targetUrl = 'https://api.tribopay.com.br/api/public/v1/transactions';
       const payload = {
