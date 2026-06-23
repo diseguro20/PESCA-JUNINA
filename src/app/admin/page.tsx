@@ -21,7 +21,8 @@ import {
   Coins, 
   HelpCircle,
   Eye,
-  Plus
+  Plus,
+  Minus
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -46,9 +47,10 @@ export default function AdminPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Estados para Adição de Saldo
+  // Estados para Ajuste de Saldo
   const [addBalanceUserId, setAddBalanceUserId] = useState<string | null>(null);
   const [addBalanceAmount, setAddBalanceAmount] = useState<string>('');
+  const [addBalanceType, setAddBalanceType] = useState<'add' | 'subtract'>('add');
   const [addingBalance, setAddingBalance] = useState(false);
 
   const handleAddBalance = async (targetUid: string, email: string) => {
@@ -58,7 +60,7 @@ export default function AdminPage() {
     }
     const val = parseFloat(addBalanceAmount);
     if (isNaN(val) || val <= 0) {
-      setErrorMsg("Por favor, digite um valor numérico válido e maior que zero para adicionar saldo.");
+      setErrorMsg("Por favor, digite um valor numérico válido e maior que zero para alterar o saldo.");
       return;
     }
 
@@ -72,22 +74,23 @@ export default function AdminPage() {
         body: JSON.stringify({
           adminUid: user.uid,
           targetUid,
-          amount: val
+          amount: val,
+          type: addBalanceType
         })
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Erro ao adicionar saldo');
+        throw new Error(data.error || 'Erro ao alterar saldo');
       }
 
-      setSuccessMsg(`Adicionado R$ ${val.toFixed(2)} de saldo para o jogador ${email} com sucesso!`);
+      setSuccessMsg(`${addBalanceType === 'subtract' ? 'Removido' : 'Adicionado'} R$ ${val.toFixed(2)} de saldo para o jogador ${email} com sucesso!`);
       setAddBalanceUserId(null);
       setAddBalanceAmount('');
       loadAdminData();
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (e: any) {
-      setErrorMsg(e.message || "Falha ao adicionar saldo.");
+      setErrorMsg(e.message || "Falha ao alterar saldo.");
     } finally {
       setAddingBalance(false);
     }
@@ -521,15 +524,19 @@ export default function AdminPage() {
                       </td>
                       <td className="py-4 px-6 font-bold text-white">
                         {addBalanceUserId === u.uid ? (
-                          <div className="flex items-center gap-1.5 max-w-[150px]">
-                            <span className="text-[10px] text-gray-400">R$</span>
+                          <div className="flex items-center gap-1.5 max-w-[170px]">
+                            {addBalanceType === 'subtract' ? (
+                              <span className="text-[10px] text-junina-red font-black">- R$</span>
+                            ) : (
+                              <span className="text-[10px] text-green-400 font-black">+ R$</span>
+                            )}
                             <input
                               type="number"
                               step="0.01"
                               value={addBalanceAmount}
                               onChange={(e) => setAddBalanceAmount(e.target.value)}
                               placeholder="0.00"
-                              className="w-16 bg-white/5 border border-white/10 rounded-lg py-1 px-1.5 text-center text-xs text-white focus:outline-none focus:border-junina-gold"
+                              className="w-16 bg-white/5 border border-white/10 rounded-lg py-1 px-1.5 text-center text-xs text-white focus:outline-none focus:border-junina-gold font-mono"
                             />
                             <button
                               onClick={() => handleAddBalance(u.uid, u.email)}
@@ -548,15 +555,24 @@ export default function AdminPage() {
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2">
                             <span>R$ {(u.balance || 0).toFixed(2)}</span>
-                            <button
-                              onClick={() => { setAddBalanceUserId(u.uid); setAddBalanceAmount(''); }}
-                              className="text-junina-gold hover:text-white transition-colors p-1"
-                              title="Adicionar Saldo"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => { setAddBalanceUserId(u.uid); setAddBalanceType('add'); setAddBalanceAmount(''); }}
+                                className="p-1 text-green-400 hover:text-white bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-lg transition-all cursor-pointer"
+                                title="Adicionar Saldo"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => { setAddBalanceUserId(u.uid); setAddBalanceType('subtract'); setAddBalanceAmount(''); }}
+                                className="p-1 text-junina-red hover:text-white bg-junina-red/10 hover:bg-junina-red/20 border border-junina-red/20 rounded-lg transition-all cursor-pointer"
+                                title="Remover Saldo"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         )}
                       </td>
