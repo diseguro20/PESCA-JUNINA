@@ -528,8 +528,8 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
       if (line) {
         const clientWidth = lakeWidthRef.current;
         const clientHeight = lakeHeightRef.current;
-        const tipXInLake = clientWidth - 241 + (nextX * 1.28);
-        const tipYInLake = clientHeight - 236 + (nextY * 1.28);
+        const tipXInLake = clientWidth - 254 + (nextX * 1.28);
+        const tipYInLake = clientHeight - 276 + (nextY * 1.28);
         const bX = bobberPosRef.current.x;
         const bY = bobberPosRef.current.y;
         
@@ -796,8 +796,8 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   // Coordenadas calculadas da ponta da vara na escala do Lago (para renderização inicial)
   const clientWidthInit = lakeRef.current?.clientWidth || 1000;
   const clientHeightInit = lakeRef.current?.clientHeight || 450;
-  const tipXInLake = clientWidthInit - 241 + (rodTipRef.current.x * 1.28);
-  const tipYInLake = clientHeightInit - 236 + (rodTipRef.current.y * 1.28);
+  const tipXInLake = clientWidthInit - 254 + (rodTipRef.current.x * 1.28);
+  const tipYInLake = clientHeightInit - 276 + (rodTipRef.current.y * 1.28);
 
   return (
     <div className="w-full h-full flex flex-col relative">
@@ -922,28 +922,28 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
 
         <style jsx global>{`
           @keyframes fishermanWiggle {
-            0% { transform: translate(0, 0) rotate(0deg) scaleX(-1); }
-            25% { transform: translate(-2px, -1px) rotate(-1.5deg) scaleX(-1); }
-            50% { transform: translate(1px, -2px) rotate(1.5deg) scaleX(-1); }
-            75% { transform: translate(-1px, 1px) rotate(-1.5deg) scaleX(-1); }
-            100% { transform: translate(0, 0) rotate(0deg) scaleX(-1); }
+            0% { transform: translate(0, 0) rotate(0deg) scaleX(1); }
+            25% { transform: translate(2px, -1px) rotate(-1.5deg) scaleX(1); }
+            50% { transform: translate(-1px, -2px) rotate(1.5deg) scaleX(1); }
+            75% { transform: translate(1px, 1px) rotate(-1.5deg) scaleX(1); }
+            100% { transform: translate(0, 0) rotate(0deg) scaleX(1); }
           }
           .animate-fisherman-wiggle {
             animation: fishermanWiggle 0.22s infinite;
           }
           @keyframes fishermanIdle {
-            0% { transform: scale(1) scaleX(-1); }
-            100% { transform: scale(1.02) scaleX(-1); }
+            0% { transform: scale(1) scaleX(1); }
+            100% { transform: scale(1.02) scaleX(1); }
           }
           .animate-fisherman-idle {
             animation: fishermanIdle 2s ease-in-out infinite alternate;
           }
           @keyframes fishermanCast {
-            0% { transform: scale(1) scaleX(-1) rotate(0deg) translate(0, 0); }
-            12% { transform: scale(1) scaleX(-1) rotate(18deg) translate(-12px, 6px); }
-            35% { transform: scale(1.08) scaleX(-1) rotate(-25deg) translate(20px, -15px); }
-            65% { transform: scale(1.03) scaleX(-1) rotate(-6deg) translate(6px, -4px); }
-            100% { transform: scale(1) scaleX(-1) rotate(0deg) translate(0, 0); }
+            0% { transform: scale(1) scaleX(1) rotate(0deg) translate(0, 0); }
+            12% { transform: scale(1) scaleX(1) rotate(18deg) translate(12px, 6px); }
+            35% { transform: scale(1.08) scaleX(1) rotate(-25deg) translate(-20px, -15px); }
+            65% { transform: scale(1.03) scaleX(1) rotate(-6deg) translate(-6px, -4px); }
+            100% { transform: scale(1) scaleX(1) rotate(0deg) translate(0, 0); }
           }
           .animate-fisherman-cast {
             animation: fishermanCast 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
