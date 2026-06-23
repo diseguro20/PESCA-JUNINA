@@ -14,7 +14,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   betAmount
 }) => {
   const { createDepositRequest, wallet } = useGame();
-  const [depositAmount, setDepositAmount] = useState('20'); // Suggested default deposit
+  const [depositAmount, setDepositAmount] = useState('5'); // Suggested default deposit
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,8 +41,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setPixResult(null);
 
     const val = parseFloat(depositAmount);
-    if (isNaN(val) || val < 15) {
-      setError("O valor mínimo para depósito é de R$ 15,00.");
+    if (isNaN(val) || val < 5) {
+      setError("O valor mínimo para depósito é de R$ 5,00.");
       return;
     }
 
@@ -204,7 +204,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {/* Deposit Amount */}
             <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Valor do Depósito (Mínimo R$ 15,00)</label>
+              <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Valor do Depósito (Mínimo R$ 5,00)</label>
               <div className="relative">
                 <input
                   type="number"
@@ -212,7 +212,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
                   className="w-full py-3.5 pl-10 pr-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
-                  min="15"
+                  min="5"
                   step="1"
                   required
                 />
@@ -222,7 +222,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {/* Value Suggestions */}
             <div className="grid grid-cols-4 gap-2">
-              {['15', '30', '50', '100'].map((val) => (
+              {['5', '15', '30', '50'].map((val) => (
                 <button
                   key={val}
                   type="button"
