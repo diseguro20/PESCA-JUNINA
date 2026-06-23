@@ -47,24 +47,32 @@ export default function AdminPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Estados para Ajuste de Saldo
-  const [addBalanceUserId, setAddBalanceUserId] = useState<string | null>(null);
-  const [addBalanceAmount, setAddBalanceAmount] = useState<string>('');
-  const [addBalanceType, setAddBalanceType] = useState<'add' | 'subtract'>('add');
-  const [addingBalance, setAddingBalance] = useState(false);
+  // Estados para Modal de Ajuste de Saldo (Pop-up)
+  const [selectedBalanceUser, setSelectedBalanceUser] = useState<any | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState<string>('');
+  const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
+  const [adjusting, setAdjusting] = useState(false);
 
-  const handleAddBalance = async (targetUid: string, email: string) => {
+  const handleAdjustBalance = async () => {
     if (!user) {
       setErrorMsg("Sessão expirada. Por favor, faça login novamente.");
       return;
     }
-    const val = parseFloat(addBalanceAmount);
+    if (!selectedBalanceUser) return;
+    
+    const val = parseFloat(adjustAmount);
     if (isNaN(val) || val <= 0) {
-      setErrorMsg("Por favor, digite um valor numérico válido e maior que zero para alterar o saldo.");
+      setErrorMsg("Por favor, digite um valor numérico válido e maior que zero.");
       return;
     }
 
-    setAddingBalance(true);
+    const currentBal = selectedBalanceUser.balance || 0;
+    if (adjustType === 'subtract' && currentBal - val < 0) {
+      setErrorMsg("O saldo do jogador não pode ficar negativo.");
+      return;
+    }
+
+    setAdjusting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
@@ -73,9 +81,9 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           adminUid: user.uid,
-          targetUid,
+          targetUid: selectedBalanceUser.uid,
           amount: val,
-          type: addBalanceType
+          type: adjustType
         })
       });
 
@@ -84,15 +92,15 @@ export default function AdminPage() {
         throw new Error(data.error || 'Erro ao alterar saldo');
       }
 
-      setSuccessMsg(`${addBalanceType === 'subtract' ? 'Removido' : 'Adicionado'} R$ ${val.toFixed(2)} de saldo para o jogador ${email} com sucesso!`);
-      setAddBalanceUserId(null);
-      setAddBalanceAmount('');
+      setSuccessMsg(`${adjustType === 'subtract' ? 'Removido' : 'Adicionado'} R$ ${val.toFixed(2)} de saldo para o jogador ${selectedBalanceUser.email} com sucesso!`);
+      setSelectedBalanceUser(null);
+      setAdjustAmount('');
       loadAdminData();
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (e: any) {
       setErrorMsg(e.message || "Falha ao alterar saldo.");
     } finally {
-      setAddingBalance(false);
+      setAdjusting(false);
     }
   };
 
@@ -523,58 +531,33 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="py-4 px-6 font-bold text-white">
-                        {addBalanceUserId === u.uid ? (
-                          <div className="flex items-center gap-1.5 max-w-[170px]">
-                            {addBalanceType === 'subtract' ? (
-                              <span className="text-[10px] text-junina-red font-black">- R$</span>
-                            ) : (
-                              <span className="text-[10px] text-green-400 font-black">+ R$</span>
-                            )}
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={addBalanceAmount}
-                              onChange={(e) => setAddBalanceAmount(e.target.value)}
-                              placeholder="0.00"
-                              className="w-16 bg-white/5 border border-white/10 rounded-lg py-1 px-1.5 text-center text-xs text-white focus:outline-none focus:border-junina-gold font-mono"
-                            />
+                        <div className="flex items-center gap-2">
+                          <span>R$ {(u.balance || 0).toFixed(2)}</span>
+                          <div className="flex gap-1.5">
                             <button
-                              onClick={() => handleAddBalance(u.uid, u.email)}
-                              disabled={addingBalance}
-                              className="p-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-lg transition-colors cursor-pointer"
-                              title="Confirmar"
+                              onClick={() => {
+                                setSelectedBalanceUser(u);
+                                setAdjustType('add');
+                                setAdjustAmount('');
+                              }}
+                              className="p-1.5 text-green-400 hover:text-white bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-lg transition-all cursor-pointer"
+                              title="Adicionar Saldo"
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Plus className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={() => { setAddBalanceUserId(null); setAddBalanceAmount(''); }}
-                              className="p-1 bg-junina-red/20 hover:bg-junina-red/30 text-junina-red border border-junina-red/30 rounded-lg transition-colors cursor-pointer"
-                              title="Cancelar"
+                              onClick={() => {
+                                setSelectedBalanceUser(u);
+                                setAdjustType('subtract');
+                                setAdjustAmount('');
+                              }}
+                              className="p-1.5 text-junina-red hover:text-white bg-junina-red/10 hover:bg-junina-red/20 border border-junina-red/20 rounded-lg transition-all cursor-pointer"
+                              title="Remover Saldo"
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <Minus className="w-3 h-3" />
                             </button>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span>R$ {(u.balance || 0).toFixed(2)}</span>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => { setAddBalanceUserId(u.uid); setAddBalanceType('add'); setAddBalanceAmount(''); }}
-                                className="p-1 text-green-400 hover:text-white bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-lg transition-all cursor-pointer"
-                                title="Adicionar Saldo"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={() => { setAddBalanceUserId(u.uid); setAddBalanceType('subtract'); setAddBalanceAmount(''); }}
-                                className="p-1 text-junina-red hover:text-white bg-junina-red/10 hover:bg-junina-red/20 border border-junina-red/20 rounded-lg transition-all cursor-pointer"
-                                title="Remover Saldo"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </td>
                       <td className="py-4 px-6 text-gray-400">R$ {(u.lockedBalance || 0).toFixed(2)}</td>
                       <td className="py-4 px-6 text-right">
@@ -723,6 +706,153 @@ export default function AdminPage() {
         </div>
 
       </div>
+
+      {/* MODAL POP-UP DE AJUSTE DE SALDO */}
+      {selectedBalanceUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#090f1d] to-[#040710] border border-white/10 rounded-3xl p-6 shadow-2xl relative">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                🛡️ Ajustar Saldo do Jogador
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedBalanceUser(null)}
+                className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-gray-400 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Informações do Usuário */}
+            <div className="bg-white/5 border border-white/5 rounded-2xl p-4 mb-6 text-left">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[9px] uppercase font-black text-junina-gold tracking-wider">Jogador</span>
+                <span className="text-sm font-extrabold text-white">{selectedBalanceUser.name}</span>
+                <span className="text-[10px] text-gray-400">{selectedBalanceUser.email}</span>
+              </div>
+              <div className="h-px bg-white/5 my-3" />
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-400">Saldo Atual:</span>
+                <span className="text-sm font-black text-white">R$ {(selectedBalanceUser.balance || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Seleção do Tipo de Operação */}
+            <div className="flex gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => setAdjustType('add')}
+                className={`flex-1 py-3 px-4 rounded-xl border font-black uppercase text-[10px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  adjustType === 'add'
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30 shadow'
+                    : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" /> Adicionar
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdjustType('subtract')}
+                className={`flex-1 py-3 px-4 rounded-xl border font-black uppercase text-[10px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  adjustType === 'subtract'
+                    ? 'bg-junina-red/20 text-junina-red border-junina-red/30 shadow'
+                    : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10'
+                }`}
+              >
+                <Minus className="w-3.5 h-3.5" /> Subtrair
+              </button>
+            </div>
+
+            {/* Valor do Ajuste */}
+            <div className="flex flex-col gap-2 mb-6 text-left">
+              <label className="text-xs font-bold text-gray-300">Valor do Ajuste (R$)</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-gray-400">R$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={adjustAmount}
+                  onChange={(e) => setAdjustAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white font-mono text-lg focus:outline-none focus:border-junina-gold font-bold"
+                  autoFocus
+                />
+              </div>
+              
+              {/* Botões de Atalho */}
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {[15, 30, 50, 100].map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setAdjustAmount(String(val.toFixed(2)))}
+                    className="py-1.5 px-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-[9px] text-gray-300 font-bold transition-all cursor-pointer text-center"
+                  >
+                    {adjustType === 'add' ? '+' : '-'} R$ {val}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Simulação em Tempo Real */}
+            <div className="bg-white/5 border border-white/5 rounded-2xl p-4 mb-6 text-left flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-xs font-bold text-gray-400">
+                <span>Operação:</span>
+                <span className={adjustType === 'add' ? 'text-green-400' : 'text-junina-red'}>
+                  {adjustType === 'add' ? 'Crédito' : 'Débito'} de R$ {(parseFloat(adjustAmount) || 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="h-px bg-white/5" />
+              <div className="flex justify-between items-center text-xs font-bold text-gray-300">
+                <span>Novo Saldo Estimado:</span>
+                <span className={`font-black text-sm ${
+                  adjustType === 'add' ? 'text-green-400' : (selectedBalanceUser.balance || 0) - (parseFloat(adjustAmount) || 0) < 0 ? 'text-junina-red' : 'text-white'
+                }`}>
+                  R$ {Math.max(0, adjustType === 'add' 
+                    ? (selectedBalanceUser.balance || 0) + (parseFloat(adjustAmount) || 0) 
+                    : (selectedBalanceUser.balance || 0) - (parseFloat(adjustAmount) || 0)
+                  ).toFixed(2)}
+                </span>
+              </div>
+              {(adjustType === 'subtract' && (selectedBalanceUser.balance || 0) - (parseFloat(adjustAmount) || 0) < 0) && (
+                <span className="text-[9px] text-junina-red font-bold text-center mt-1">
+                  ⚠️ Saldo insuficiente! O débito máximo é R$ {(selectedBalanceUser.balance || 0).toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedBalanceUser(null)}
+                className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/5 text-gray-300 font-black rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={
+                  adjusting || 
+                  !adjustAmount || 
+                  isNaN(parseFloat(adjustAmount)) || 
+                  parseFloat(adjustAmount) <= 0 ||
+                  (adjustType === 'subtract' && (selectedBalanceUser.balance || 0) - (parseFloat(adjustAmount) || 0) < 0)
+                }
+                onClick={handleAdjustBalance}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-junina-orange to-junina-gold disabled:from-gray-700 disabled:to-gray-800 text-junina-wood-dark disabled:text-gray-400 font-black rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {adjusting ? 'Aplicando...' : 'Aplicar Ajuste'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </JuninaBackground>
   );
 }
