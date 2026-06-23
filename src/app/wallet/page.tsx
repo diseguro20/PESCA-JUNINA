@@ -55,6 +55,11 @@ export default function WalletPage() {
     }
   }, [user]);
 
+  // Aquecer o servidor proxy de pagamento no Render para evitar latência inicial (cold start)
+  useEffect(() => {
+    fetch('https://pesca-junina-proxy.onrender.com/health').catch(() => {});
+  }, []);
+
   if (authLoading || !user) return null;
 
   const displayBalance = wallet?.balance ?? 0;

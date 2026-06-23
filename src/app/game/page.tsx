@@ -54,6 +54,11 @@ export default function GamePage() {
     }
   }, [user]);
 
+  // Aquecer o servidor proxy de pagamento no Render para evitar latência inicial (cold start)
+  useEffect(() => {
+    fetch('https://pesca-junina-proxy.onrender.com/health').catch(() => {});
+  }, []);
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen w-full bg-junina-blue-deep flex items-center justify-center">

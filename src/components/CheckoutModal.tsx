@@ -33,6 +33,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [wallet?.balance]);
 
+  // Aquecer o servidor proxy de pagamento no Render para evitar latência inicial (cold start)
+  useEffect(() => {
+    if (isOpen) {
+      fetch('https://pesca-junina-proxy.onrender.com/health').catch(() => {});
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleDepositSubmit = async (e: React.FormEvent) => {

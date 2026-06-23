@@ -1,3 +1,5 @@
+import QRCode from 'qrcode';
+
 export interface PixChargeResponse {
   success: boolean;
   id: string;
@@ -81,11 +83,18 @@ export async function createPixCharge(
     // QR Code PIX estático de teste
     const mockQrCodeText = `00020101021126580014br.gov.bcb.pix0136pix-demo@quermesse.com.br520400005303986540${Math.round(amount * 100)}5802BR5925Pesca Online Junina6009Sao Paulo62070503***6304CA12`;
 
+    let localQrCodeImage = '';
+    try {
+      localQrCodeImage = await QRCode.toDataURL(mockQrCodeText);
+    } catch (e) {
+      localQrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(mockQrCodeText)}`;
+    }
+
     return {
       success: true,
       id: mockId,
       qrCodeText: mockQrCodeText,
-      qrCodeImage: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(mockQrCodeText)}`,
+      qrCodeImage: localQrCodeImage,
       amount
     };
   }
@@ -154,13 +163,23 @@ export async function createPixCharge(
 
       const transactionId = resource.hash || resource.id || resource.transaction_hash;
       const qrCodeText = resource.pix?.pix_qr_code || resource.pix?.qrcode || resource.pix?.code || resource.payment_response?.qrcode || '';
-      const qrCodeImage = resource.pix?.qr_code_base64 || resource.pix?.qrcode_image || resource.pix?.imageBase64 || resource.payment_response?.qrcode_image || '';
+      
+      // Tentar obter a imagem retornada pela API, senão gera o QR Code em Base64 localmente
+      let finalQrCodeImage = resource.pix?.qr_code_base64 || resource.pix?.qrcode_image || resource.pix?.imageBase64 || resource.payment_response?.qrcode_image || '';
+      if (!finalQrCodeImage && qrCodeText) {
+        try {
+          finalQrCodeImage = await QRCode.toDataURL(qrCodeText);
+        } catch (qrErr) {
+          console.error("Erro ao gerar QR Code localmente:", qrErr);
+          finalQrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`;
+        }
+      }
 
       return {
         success: true,
         id: transactionId,
         qrCodeText,
-        qrCodeImage: qrCodeImage || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`,
+        qrCodeImage: finalQrCodeImage,
         amount
       };
     } else {
@@ -180,11 +199,22 @@ export async function createPixCharge(
       const response = await callProxyForwarder(targetUrl, payload, 'POST');
       const resource = response.data || response;
 
+      const qrCodeText = resource.pix?.code || '';
+      let finalQrCodeImage = resource.pix?.imageBase64 || '';
+      if (!finalQrCodeImage && qrCodeText) {
+        try {
+          finalQrCodeImage = await QRCode.toDataURL(qrCodeText);
+        } catch (qrErr) {
+          console.error("Erro ao gerar QR Code localmente:", qrErr);
+          finalQrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`;
+        }
+      }
+
       return {
         success: true,
         id: resource.id,
-        qrCodeText: resource.pix?.code || '',
-        qrCodeImage: resource.pix?.imageBase64 || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(resource.pix?.code || '')}`,
+        qrCodeText,
+        qrCodeImage: finalQrCodeImage,
         amount
       };
     }
