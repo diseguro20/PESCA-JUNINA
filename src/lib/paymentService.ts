@@ -68,6 +68,56 @@ async function callProxyForwarder(url: string, body: any, method: 'POST' | 'GET'
 }
 
 /**
+ * Gera um código EMV de Pix válido estruturalmente para fins de teste ou produção
+ */
+function buildPixEMV(key: string, amount: number, merchantName: string = "Pesca Online Junina", city: string = "Sao Paulo"): string {
+  const gui = "br.gov.bcb.pix";
+  
+  // Merchant Account Info (Tag 26)
+  const part00 = `0014${gui}`;
+  const part01 = `01${key.length.toString().padStart(2, '0')}${key}`;
+  const merchantAccountInfo = `26${(part00.length + part01.length).toString().padStart(2, '0')}${part00}${part01}`;
+  
+  // Category Code (Tag 52)
+  const categoryCode = "52040000";
+  
+  // Currency (Tag 53)
+  const currency = "5303986";
+  
+  // Amount (Tag 54)
+  const amountStr = amount.toFixed(2);
+  const transactionAmount = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
+  
+  // Country Code (Tag 58)
+  const countryCode = "5802BR";
+  
+  // Merchant Name (Tag 59)
+  const merchantNamePart = `59${merchantName.length.toString().padStart(2, '0')}${merchantName}`;
+  
+  // Merchant City (Tag 60)
+  const merchantCityPart = `60${city.length.toString().padStart(2, '0')}${city}`;
+  
+  // Additional Data Field (Tag 62)
+  const txId = "***";
+  const additionalData = `62${(4 + txId.length).toString().padStart(2, '0')}0503${txId}`;
+  
+  // Combine all fields except CRC
+  const rawEMV = `000201${merchantAccountInfo}${categoryCode}${currency}${transactionAmount}${countryCode}${merchantNamePart}${merchantCityPart}${additionalData}6304`;
+  
+  // Calculate CRC16 CCITT
+  let crc = 0xFFFF;
+  for (let i = 0; i < rawEMV.length; i++) {
+    const charCode = rawEMV.charCodeAt(i);
+    let x = ((crc >> 8) ^ charCode) & 0xFF;
+    x ^= x >> 4;
+    crc = ((crc << 8) ^ (x << 12) ^ (x << 5) ^ x) & 0xFFFF;
+  }
+  const crcStr = crc.toString(16).toUpperCase().padStart(4, '0');
+  
+  return rawEMV + crcStr;
+}
+
+/**
  * Cria uma cobrança Pix (Cash-In)
  */
 export async function createPixCharge(
@@ -80,8 +130,8 @@ export async function createPixCharge(
     console.log(`[PaymentService] Simulando cobrança Pix de R$ ${amount.toFixed(2)}`);
     const mockId = "tp_chg_" + Math.random().toString(36).substring(2, 11);
     
-    // QR Code PIX estático de teste
-    const mockQrCodeText = `00020101021126580014br.gov.bcb.pix0136pix-demo@quermesse.com.br520400005303986540${Math.round(amount * 100)}5802BR5925Pesca Online Junina6009Sao Paulo62070503***6304CA12`;
+    // Gerar um Pix EMV válido com chave demo estruturada para evitar erros de leitura [QRCD10]
+    const mockQrCodeText = buildPixEMV("pix-demo@quermesse.com.br", amount);
 
     let localQrCodeImage = '';
     try {
