@@ -394,7 +394,7 @@ export default function WalletPage() {
                     <div className="relative">
                       <input
                         type="number"
-                        placeholder="Ex: 5,00"
+                        placeholder="Ex: 20,00"
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                         className="w-full py-3 pl-10 pr-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
