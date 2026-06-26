@@ -46,7 +46,8 @@ export async function POST(req: Request) {
           withdrawal.recipientName || '',
           withdrawal.recipientDocument || '',
           withdrawal.pixKeyType || 'aleatory',
-          withdrawalId
+          withdrawalId,
+          withdrawal.requesterIp || '179.241.195.127'
         );
         if (!payoutRes.success) {
           return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela simulação do gateway.' }, { status: 500 });
@@ -110,7 +111,8 @@ export async function POST(req: Request) {
           withdrawalData.recipientName || '',
           withdrawalData.recipientDocument || '',
           withdrawalData.pixKeyType || 'aleatory',
-          withdrawalId
+          withdrawalId,
+          withdrawalData.requesterIp || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '179.241.195.127'
         );
         if (!payoutRes.success) {
           return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela Vizzion Pay.' }, { status: 500 });

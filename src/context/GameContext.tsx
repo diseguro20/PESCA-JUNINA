@@ -59,6 +59,7 @@ export interface Withdrawal {
   pixKeyType?: 'document' | 'email' | 'phone_number' | 'aleatory';
   recipientName?: string;
   recipientDocument?: string;
+  requesterIp?: string;
   payoutId?: string;
   createdAt: string;
   updatedAt: string;

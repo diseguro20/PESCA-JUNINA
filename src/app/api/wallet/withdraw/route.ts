@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
+import { normalizePixKeyForGateway, validateRecipientDocument } from '../../../../lib/paymentService';
+
+function getRequestIp(req: Request): string {
+  const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return forwardedFor || req.headers.get('x-real-ip') || '179.241.195.127';
+}
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +20,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'O valor do saque deve ser maior que zero' }, { status: 400 });
     }
 
+    validateRecipientDocument(recipientDocument);
+    normalizePixKeyForGateway(pixKeyType, pixKey);
+
     const createdAt = new Date().toISOString();
+    const requesterIp = getRequestIp(req);
 
     if (isAdminDemoMode) {
       const dbData = getMockDb();
@@ -48,6 +58,7 @@ export async function POST(req: Request) {
         pixKeyType,
         recipientName,
         recipientDocument,
+        requesterIp,
         createdAt,
         updatedAt: createdAt
       };
@@ -106,6 +117,7 @@ export async function POST(req: Request) {
         pixKeyType,
         recipientName,
         recipientDocument,
+        requesterIp,
         createdAt,
         updatedAt: createdAt
       });

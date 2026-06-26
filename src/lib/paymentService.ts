@@ -17,6 +17,9 @@ export interface PixPayoutResponse {
   status: 'pending' | 'approved' | 'rejected';
 }
 
+type PixKeyType = 'document' | 'email' | 'phone_number' | 'aleatory';
+type DocumentType = 'cpf' | 'cnpj';
+
 const PROXY_SERVER_URL = process.env.PROXY_SERVER_URL;
 const PROXY_SECRET_KEY = process.env.PROXY_SECRET_KEY;
 const VIZZIONPAY_API_BASE_URL = (process.env.VIZZIONPAY_API_BASE_URL || 'https://app.vizzionpay.com.br/api/v1').replace(/\/$/, '');
@@ -57,7 +60,7 @@ async function callProxyForwarder(url: string, body: any, method: 'POST' | 'GET'
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const errMsg = data?.error || data?.message || data?.details || `Erro no proxy de pagamento (status: ${res.status})`;
+    const errMsg = formatGatewayError(data) || `Erro no proxy de pagamento (status: ${res.status})`;
     const error = new Error(errMsg) as Error & { status?: number; data?: any };
     error.status = res.status;
     error.data = data;
@@ -89,7 +92,7 @@ function sanitizeRecipientName(name: string): string {
 /**
  * Mapeia o tipo de chave Pix do Next.js para os tipos da Vizzion Pay
  */
-function mapPixKeyType(type: 'document' | 'email' | 'phone_number' | 'aleatory', key: string): 'cpf' | 'cnpj' | 'phone' | 'email' | 'random' {
+function mapPixKeyType(type: PixKeyType, key: string): 'cpf' | 'cnpj' | 'phone' | 'email' | 'random' {
   if (type === 'document') {
     const cleanKey = key.replace(/\D/g, '');
     return cleanKey.length === 14 ? 'cnpj' : 'cpf';
@@ -101,6 +104,35 @@ function mapPixKeyType(type: 'document' | 'email' | 'phone_number' | 'aleatory',
 
 function toMoneyAmount(amount: number): number {
   return Number(amount.toFixed(2));
+}
+
+function formatGatewayError(data: any): string {
+  if (!data) {
+    return '';
+  }
+
+  const detailMessages = Array.isArray(data.details)
+    ? data.details
+        .map((detail: any) => {
+          const path = detail?.path;
+          const message = detail?.error?.message || detail?.message;
+          if (!message) {
+            return '';
+          }
+          return path ? `${path}: ${message}` : message;
+        })
+        .filter(Boolean)
+    : [];
+
+  if (detailMessages.some((message: string) => message.includes('owner.document.number'))) {
+    return 'Documento do beneficiario invalido. Informe um CPF ou CNPJ valido para autorizar o saque.';
+  }
+
+  if (detailMessages.length > 0) {
+    return `${data.message || data.error || 'Dados invalidos enviados ao gateway'} (${detailMessages.join('; ')})`;
+  }
+
+  return data.error || data.message || data.details || '';
 }
 
 function getConfiguredUrl(envName: string, fallbackPath: string): string {
@@ -186,6 +218,91 @@ function generateCpf(): string {
 function generatePhone(): string {
   const suffix = Math.floor(10000000 + Math.random() * 90000000);
   return `119${suffix}`;
+}
+
+function hasRepeatedDigits(value: string): boolean {
+  return /^(\d)\1+$/.test(value);
+}
+
+function isValidCpf(value: string): boolean {
+  if (!/^\d{11}$/.test(value) || hasRepeatedDigits(value)) {
+    return false;
+  }
+
+  const digits = value.split('').map(Number);
+  const calcDigit = (baseLength: number) => {
+    const factorStart = baseLength + 1;
+    const total = digits.slice(0, baseLength).reduce((sum, digit, index) => sum + digit * (factorStart - index), 0);
+    const remainder = total % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  return calcDigit(9) === digits[9] && calcDigit(10) === digits[10];
+}
+
+function isValidCnpj(value: string): boolean {
+  if (!/^\d{14}$/.test(value) || hasRepeatedDigits(value)) {
+    return false;
+  }
+
+  const digits = value.split('').map(Number);
+  const calcDigit = (baseLength: number) => {
+    const weights = baseLength === 12
+      ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const total = digits.slice(0, baseLength).reduce((sum, digit, index) => sum + digit * weights[index], 0);
+    const remainder = total % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  return calcDigit(12) === digits[12] && calcDigit(13) === digits[13];
+}
+
+export function validateRecipientDocument(document: string): { type: DocumentType; number: string } {
+  const number = document.replace(/\D/g, '');
+
+  if (number.length === 11 && isValidCpf(number)) {
+    return { type: 'cpf', number };
+  }
+
+  if (number.length === 14 && isValidCnpj(number)) {
+    return { type: 'cnpj', number };
+  }
+
+  throw new Error('Documento do beneficiario invalido. Informe um CPF ou CNPJ valido.');
+}
+
+export function normalizePixKeyForGateway(type: PixKeyType, key: string): string {
+  const trimmedKey = key.trim();
+
+  if (type === 'document') {
+    return validateRecipientDocument(trimmedKey).number;
+  }
+
+  if (type === 'email') {
+    const email = trimmedKey.toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('Chave Pix de e-mail invalida.');
+    }
+    return email;
+  }
+
+  if (type === 'phone_number') {
+    const digits = trimmedKey.replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) {
+      return `+55${digits}`;
+    }
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+      return `+${digits}`;
+    }
+    throw new Error('Chave Pix de celular invalida. Informe DDD e numero.');
+  }
+
+  if (trimmedKey.length < 10) {
+    throw new Error('Chave Pix aleatoria invalida.');
+  }
+
+  return trimmedKey;
 }
 
 /**
@@ -390,7 +507,7 @@ export async function executePixPayout(
   pixKey: string,
   recipientName: string,
   recipientDocument: string,
-  pixKeyType: 'document' | 'email' | 'phone_number' | 'aleatory',
+  pixKeyType: PixKeyType,
   withdrawalId: string,
   ip: string = '179.241.195.127'
 ): Promise<PixPayoutResponse> {
@@ -408,8 +525,8 @@ export async function executePixPayout(
   // --- INTEGRAÇÃO REAL VIA PROXY (VIZZION PAY) ---
   try {
     const targetUrl = getConfiguredUrl('VIZZIONPAY_PIX_TRANSFER_URL', '/gateway/transfers');
-    const cleanDoc = recipientDocument.replace(/\D/g, '');
-    const docType = cleanDoc.length === 14 ? 'cnpj' : 'cpf';
+    const document = validateRecipientDocument(recipientDocument);
+    const normalizedPixKey = normalizePixKeyForGateway(pixKeyType, pixKey);
     const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/vizzionpay`;
 
     const payload = {
@@ -418,14 +535,14 @@ export async function executePixPayout(
       discountFeeOfReceiver: false,
       pix: {
         type: mapPixKeyType(pixKeyType, pixKey),
-        key: pixKey
+        key: normalizedPixKey
       },
       owner: {
         ip: ip,
         name: sanitizeRecipientName(recipientName),
         document: {
-          type: docType,
-          number: cleanDoc
+          type: document.type,
+          number: document.number
         }
       },
       callbackUrl
