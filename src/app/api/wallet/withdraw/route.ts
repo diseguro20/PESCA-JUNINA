@@ -20,8 +20,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'O valor do saque deve ser maior que zero' }, { status: 400 });
     }
 
-    validateRecipientDocument(recipientDocument);
-    normalizePixKeyForGateway(pixKeyType, pixKey);
+    try {
+      validateRecipientDocument(recipientDocument);
+      normalizePixKeyForGateway(pixKeyType, pixKey);
+    } catch (validationError: any) {
+      return NextResponse.json({ error: validationError.message || 'Dados do saque invalidos' }, { status: 400 });
+    }
 
     const createdAt = new Date().toISOString();
     const requesterIp = getRequestIp(req);
