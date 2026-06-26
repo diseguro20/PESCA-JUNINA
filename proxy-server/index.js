@@ -25,6 +25,30 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Proxy operacional.' });
 });
 
+// Rota protegida para descobrir o IP publico usado em chamadas de saida.
+app.get('/outbound-ip', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${PROXY_SECRET_KEY}`) {
+      return res.status(401).json({ error: 'Acesso Nao Autorizado. Chave do proxy invalida.' });
+    }
+
+    const response = await fetch('https://api.ipify.org?format=json');
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Falha ao consultar IP de saida.' });
+    }
+
+    const data = await response.json();
+    return res.status(200).json({
+      ip: data.ip,
+      message: 'Autorize este IP na Vizzion Pay para as transferencias Pix.'
+    });
+  } catch (error) {
+    console.error('[Proxy] Erro ao consultar IP de saida:', error);
+    return res.status(500).json({ error: 'Erro ao consultar IP de saida', details: error.message });
+  }
+});
+
 // Rota Genérica de Encaminhamento (Forwarder)
 app.post('/api/forward', async (req, res) => {
   try {
