@@ -137,7 +137,7 @@ function normalizeDepositPayload(body: any): NormalizedDepositWebhook {
       body.payer?.email,
       body.email
     ).toLowerCase(),
-    paidAt: getFirstString(transaction.paid_at, body.paid_at, transaction.paidAt, body.paidAt) || null
+    paidAt: getFirstString(transaction.paid_at, body.paid_at, transaction.paidAt, body.paidAt, transaction.payedAt, body.payedAt) || null
   };
 }
 
@@ -226,11 +226,6 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
     return NextResponse.json({ success: true, message: 'Status recebido sem alteracao de saldo' });
   }
 
-  const isVerifiedPaid = await verifyGatewayPayment(deposit, hasWebhookToken);
-  if (!isVerifiedPaid) {
-    return NextResponse.json({ error: 'Verificacao de seguranca falhou' }, { status: 403 });
-  }
-
   const updatedAt = new Date().toISOString();
 
   if (isAdminDemoMode) {
@@ -280,6 +275,13 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
       return NextResponse.json({ success: true, message: 'Deposito ja estava pago (idempotente)' });
     }
 
+    if (!hasWebhookToken) {
+      const isVerifiedPaid = await verifyGatewayPayment(deposit, hasWebhookToken);
+      if (!isVerifiedPaid) {
+        return NextResponse.json({ error: 'Verificacao de seguranca falhou' }, { status: 403 });
+      }
+    }
+
     let wallet = dbData.wallets[depositRecord.uid];
     if (!wallet) {
       wallet = {
@@ -313,6 +315,17 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
   if (!match) {
     console.warn(`[Webhook VizzionPay] Deposito ${deposit.paymentId || deposit.identifier} nao encontrado no Firestore.`);
     return NextResponse.json({ error: 'Deposito nao encontrado' }, { status: 404 });
+  }
+
+  if (!amountsMatch(match.data.amount, deposit.amount)) {
+    return NextResponse.json({ error: 'Valor do deposito nao confere' }, { status: 409 });
+  }
+
+  if (!hasWebhookToken) {
+    const isVerifiedPaid = await verifyGatewayPayment(deposit, hasWebhookToken);
+    if (!isVerifiedPaid) {
+      return NextResponse.json({ error: 'Verificacao de seguranca falhou' }, { status: 403 });
+    }
   }
 
   const walletRef = adminDb.collection('wallets').doc(match.data.uid);
