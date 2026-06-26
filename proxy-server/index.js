@@ -11,9 +11,13 @@ const PROXY_SECRET_KEY = process.env.PROXY_SECRET_KEY;
 const TRIBOPAY_TOKEN = process.env.TRIBOPAY_TOKEN;
 
 // Validação de inicialização
-if (!PROXY_SECRET_KEY || !TRIBOPAY_TOKEN) {
-  console.error("❌ ERRO: PROXY_SECRET_KEY e TRIBOPAY_TOKEN são obrigatórios no arquivo .env");
+if (!PROXY_SECRET_KEY) {
+  console.error("❌ ERRO: PROXY_SECRET_KEY é obrigatório no arquivo .env");
   process.exit(1);
+}
+
+if (!TRIBOPAY_TOKEN) {
+  console.warn("⚠️ AVISO: TRIBOPAY_TOKEN não configurado. Endpoints da TriboPay não funcionarão por padrão.");
 }
 
 // Rota de Health Check
@@ -37,10 +41,29 @@ app.post('/api/forward', async (req, res) => {
       return res.status(400).json({ error: 'O campo "url" é obrigatório no corpo da requisição.' });
     }
 
+    const target = new URL(url);
+    const allowedHosts = (process.env.PROXY_ALLOWED_HOSTS || 'app.vizzionpay.com.br,api.tribopay.com.br')
+      .split(',')
+      .map(host => host.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!allowedHosts.includes(target.hostname.toLowerCase())) {
+      return res.status(403).json({ error: `Host externo não permitido pelo proxy: ${target.hostname}` });
+    }
+
+    const isVizzionPay = target.hostname.toLowerCase().endsWith('vizzionpay.com.br');
+    const isTriboPay = target.hostname.toLowerCase().includes('tribopay');
+
+    // Obter credenciais Vizzion Pay das requisições recebidas ou das variáveis locais
+    const vizzionPublicKey = req.headers['x-public-key'] || process.env.VIZZIONPAY_PUBLIC_KEY;
+    const vizzionSecretKey = req.headers['x-secret-key'] || process.env.VIZZIONPAY_CLIENT_SECRET;
+
+    // Obter token TriboPay se aplicável
     const tribopayToken = req.headers['x-tribopay-token'] || TRIBOPAY_TOKEN;
 
     let finalBody = body;
-    if (finalBody && typeof finalBody === 'object' && method.toUpperCase() !== 'GET') {
+    // Injeta tokens TriboPay apenas se a URL for explicitamente para a TriboPay
+    if (isTriboPay && finalBody && typeof finalBody === 'object' && method.toUpperCase() !== 'GET') {
       if (!finalBody.api_token) {
         finalBody.api_token = tribopayToken;
       }
@@ -51,19 +74,37 @@ app.post('/api/forward', async (req, res) => {
 
     console.log(`[Proxy] Encaminhando requisição ${method} para: ${url}`);
 
-    // 2. Fazer requisição à TriboPay usando o IP estático deste servidor
+    // Configurar headers de saída
+    const outHeaders = {
+      'Content-Type': 'application/json'
+    };
+
+    if (isVizzionPay && vizzionPublicKey) {
+      outHeaders['X-Public-Key'] = vizzionPublicKey;
+    }
+    if (isVizzionPay && vizzionSecretKey) {
+      outHeaders['X-Secret-Key'] = vizzionSecretKey;
+    }
+    if (isTriboPay && tribopayToken) {
+      outHeaders['Authorization'] = `Bearer ${tribopayToken}`;
+    }
+
+    // 2. Fazer requisição usando o IP estático deste servidor
     const response = await fetch(url, {
       method: method.toUpperCase(),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tribopayToken}` // Anexa o Token real da TriboPay com segurança
-      },
+      headers: outHeaders,
       body: finalBody ? JSON.stringify(finalBody) : undefined
     });
 
-    const data = await response.json().catch(() => null);
+    const rawResponse = await response.text();
+    let data = null;
+    try {
+      data = rawResponse ? JSON.parse(rawResponse) : null;
+    } catch (_) {
+      data = rawResponse ? { message: rawResponse } : null;
+    }
 
-    console.log(`[Proxy] Resposta recebida da TriboPay. Status: ${response.status}`);
+    console.log(`[Proxy] Resposta recebida da API externa. Status: ${response.status}`);
     
     return res.status(response.status).json(data || { status: response.status, message: 'Sem resposta JSON' });
 

@@ -24,6 +24,13 @@ export interface MockDbData {
     amount: number;
     status: 'pending' | 'approved' | 'rejected' | 'paid' | 'expired' | 'refunded';
     receiptUrl?: string;
+    identifier?: string;
+    gatewayPaymentId?: string;
+    gatewayTransactionId?: string | null;
+    gatewayStatus?: string;
+    paidAt?: string | null;
+    qrCodeText?: string;
+    qrCodeImage?: string;
     createdAt: string;
     updatedAt: string;
   }>;

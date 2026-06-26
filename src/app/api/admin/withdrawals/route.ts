@@ -113,11 +113,11 @@ export async function POST(req: Request) {
           withdrawalId
         );
         if (!payoutRes.success) {
-          return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela TriboPay.' }, { status: 500 });
+          return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela Vizzion Pay.' }, { status: 500 });
         }
         externalPayoutId = payoutRes.id;
       } catch (payoutError: any) {
-        return NextResponse.json({ error: `Falha na transferência Pix: ${payoutError.message || 'Erro de comunicação com a TriboPay'}` }, { status: 500 });
+        return NextResponse.json({ error: `Falha na transferência Pix: ${payoutError.message || 'Erro de comunicação com a Vizzion Pay'}` }, { status: 500 });
       }
     }
 

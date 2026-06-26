@@ -3,6 +3,8 @@ import QRCode from 'qrcode';
 export interface PixChargeResponse {
   success: boolean;
   id: string;
+  identifier: string;
+  gatewayId?: string;
   qrCodeText: string;
   qrCodeImage?: string;
   amount: number;
@@ -17,6 +19,7 @@ export interface PixPayoutResponse {
 
 const PROXY_SERVER_URL = process.env.PROXY_SERVER_URL;
 const PROXY_SECRET_KEY = process.env.PROXY_SECRET_KEY;
+const VIZZIONPAY_API_BASE_URL = (process.env.VIZZIONPAY_API_BASE_URL || 'https://app.vizzionpay.com.br/api/v1').replace(/\/$/, '');
 
 export const isLivePaymentsConfigured = !!(PROXY_SERVER_URL && PROXY_SECRET_KEY);
 
@@ -28,14 +31,18 @@ async function callProxyForwarder(url: string, body: any, method: 'POST' | 'GET'
     throw new Error("Proxy de pagamento não configurado.");
   }
 
-  const token = process.env.TRIBOPAY_TOKEN;
+  const publicKey = process.env.VIZZIONPAY_PUBLIC_KEY;
+  const secretKey = process.env.VIZZIONPAY_CLIENT_SECRET;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${PROXY_SECRET_KEY}`
   };
 
-  if (token) {
-    headers['x-tribopay-token'] = token;
+  if (publicKey) {
+    headers['x-public-key'] = publicKey;
+  }
+  if (secretKey) {
+    headers['x-secret-key'] = secretKey;
   }
 
   const res = await fetch(`${PROXY_SERVER_URL}/api/forward`, {
@@ -48,23 +55,117 @@ async function callProxyForwarder(url: string, body: any, method: 'POST' | 'GET'
     })
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
-    let errMsg = data.error || data.message || `Erro no proxy de pagamento (status: ${res.status})`;
-    
-    // Tratar erro da API legada (Cash-in)
-    if (data.errors?.error_code === 'PAYMENT_PROCESSING_ERROR' || errMsg.includes('processar o pagamento')) {
-      errMsg = "Erro TriboPay (PAYMENT_PROCESSING_ERROR): A API legada de depósitos falhou. É obrigatório configurar a variável de ambiente TRIBOPAY_OFFER_HASH no seu servidor/Vercel com uma Oferta de Checkout ativa do painel da TriboPay para migrar para a API v1.";
-    }
-    // Tratar erro da API v1
-    else if (url.includes('v1/transactions') && res.status === 500) {
-      errMsg = `Erro TriboPay v1 (Status 500): Falha ao gerar transação de checkout. Certifique-se de que o TRIBOPAY_OFFER_HASH (${body?.offer_hash || 'não definido'}) é uma oferta de checkout PIX ativa e válida no seu painel da TriboPay, e que o token da API está correto.`;
-    }
-    
-    throw new Error(errMsg);
+    const errMsg = data?.error || data?.message || data?.details || `Erro no proxy de pagamento (status: ${res.status})`;
+    const error = new Error(errMsg) as Error & { status?: number; data?: any };
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
+}
+
+/**
+ * Sanitiza o nome do beneficiário (apenas letras e espaços, sem acentos, máx 100 caracteres)
+ */
+function sanitizeRecipientName(name: string): string {
+  const noAccents = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const sanitized = noAccents.replace(/[^a-zA-Z\s]/g, "").replace(/\s+/g, " ").trim().substring(0, 100);
+  const parts = sanitized.split(" ").filter(Boolean);
+
+  if (parts.length >= 2) {
+    return sanitized;
+  }
+
+  if (parts.length === 1) {
+    return `${parts[0]} Silva`;
+  }
+
+  return "Cliente Pesca";
+}
+
+/**
+ * Mapeia o tipo de chave Pix do Next.js para os tipos da Vizzion Pay
+ */
+function mapPixKeyType(type: 'document' | 'email' | 'phone_number' | 'aleatory', key: string): 'cpf' | 'cnpj' | 'phone' | 'email' | 'random' {
+  if (type === 'document') {
+    const cleanKey = key.replace(/\D/g, '');
+    return cleanKey.length === 14 ? 'cnpj' : 'cpf';
+  }
+  if (type === 'email') return 'email';
+  if (type === 'phone_number') return 'phone';
+  return 'random';
+}
+
+function toMoneyAmount(amount: number): number {
+  return Number(amount.toFixed(2));
+}
+
+function getConfiguredUrl(envName: string, fallbackPath: string): string {
+  const explicitUrl = process.env[envName];
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  return `${VIZZIONPAY_API_BASE_URL}${fallbackPath}`;
+}
+
+function getPixDepositUrls(): string[] {
+  const explicitUrl = process.env.VIZZIONPAY_PIX_DEPOSIT_URL;
+  if (explicitUrl) {
+    return [explicitUrl];
+  }
+
+  return [
+    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/deposit`,
+    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/receive`
+  ];
+}
+
+function getPixStatusUrls(depositId: string): string[] {
+  const encodedId = encodeURIComponent(depositId);
+  const explicitUrl = process.env.VIZZIONPAY_PIX_STATUS_URL;
+
+  if (explicitUrl) {
+    return [explicitUrl.replace('{id}', encodedId)];
+  }
+
+  return [
+    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/status/${encodedId}`,
+    `${VIZZIONPAY_API_BASE_URL}/gateway/transactions/${encodedId}`,
+    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/deposit/${encodedId}`
+  ];
+}
+
+function isEndpointNotFound(error: any): boolean {
+  return error?.status === 404 || error?.status === 405;
+}
+
+function normalizeQrCodeImage(value: string): string {
+  if (!value) {
+    return '';
+  }
+
+  if (value.startsWith('data:image') || value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+
+  return `data:image/png;base64,${value}`;
+}
+
+function getFirstString(...values: any[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+    if (typeof value === 'number') {
+      return String(value);
+    }
+  }
+
+  return '';
 }
 
 /**
@@ -128,7 +229,7 @@ export async function createPixCharge(
   if (!isLivePaymentsConfigured) {
     // Modo Simulação/Demo
     console.log(`[PaymentService] Simulando cobrança Pix de R$ ${amount.toFixed(2)}`);
-    const mockId = "tp_chg_" + Math.random().toString(36).substring(2, 11);
+    const mockId = "vp_chg_" + Math.random().toString(36).substring(2, 11);
     
     // Gerar um Pix EMV válido com chave demo estruturada para evitar erros de leitura [QRCD10]
     const mockQrCodeText = buildPixEMV("pix-demo@quermesse.com.br", amount);
@@ -143,133 +244,117 @@ export async function createPixCharge(
     return {
       success: true,
       id: mockId,
+      identifier: mockId,
       qrCodeText: mockQrCodeText,
       qrCodeImage: localQrCodeImage,
       amount
     };
   }
 
-  // --- INTEGRAÇÃO REAL VIA PROXY ---
+  // --- INTEGRAÇÃO REAL VIA PROXY (VIZZION PAY) ---
   try {
-    // Sanitizar o nome do pagador para conformidade com as regras do gateway (mínimo 2 palavras, sem números)
-    let sanitizedName = name.replace(/[0-9]/g, '').trim();
-    sanitizedName = sanitizedName.replace(/\s+/g, ' ');
-    if (!sanitizedName) {
-      sanitizedName = "Jogador Junino";
-    } else {
-      const parts = sanitizedName.split(' ').filter(Boolean);
-      if (parts.length < 2) {
-        sanitizedName = `${parts[0] || 'Jogador'} Silva`;
+    const localId = "dep_" + Math.random().toString(36).substring(2, 15);
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/vizzionpay`;
+
+    const payload = {
+      identifier: localId,
+      amount: toMoneyAmount(amount),
+      callbackUrl,
+      client: {
+        name: sanitizeRecipientName(name),
+        email
+      },
+      products: [
+        {
+          name: "Saldo Pesca Online",
+          price: toMoneyAmount(amount),
+          quantity: 1
+        }
+      ]
+    };
+
+    let response: any = null;
+    let lastError: any = null;
+
+    for (const targetUrl of getPixDepositUrls()) {
+      try {
+        response = await callProxyForwarder(targetUrl, payload, 'POST');
+        lastError = null;
+        break;
+      } catch (error: any) {
+        lastError = error;
+
+        if (!isEndpointNotFound(error)) {
+          throw error;
+        }
       }
     }
 
-    const offerHash = process.env.TRIBOPAY_OFFER_HASH;
-    const tribopayToken = process.env.TRIBOPAY_TOKEN || '';
-
-    if (offerHash && offerHash !== 'your_offer_hash_here' && offerHash.trim() !== '') {
-      // Usar a API v1 de Checkout/Transactions
-      const targetUrl = `https://api.tribopay.com.br/api/public/v1/transactions?api_token=${tribopayToken}`;
-      
-      // Gerar CPF válido dinamicamente para evitar detecção de fraude por documentos repetidos
-      const generateCPF = () => {
-        const num = () => Math.floor(Math.random() * 9);
-        const n = Array.from({length: 9}, num);
-        let d1 = n.reduce((acc, val, idx) => acc + val * (10 - idx), 0);
-        d1 = 11 - (d1 % 11);
-        if (d1 >= 10) d1 = 0;
-        const n2 = [...n, d1];
-        let d2 = n2.reduce((acc, val, idx) => acc + val * (11 - idx), 0);
-        d2 = 11 - (d2 % 11);
-        if (d2 >= 10) d2 = 0;
-        return [...n, d1, d2].join('');
-      };
-
-      const payload = {
-        offer_hash: offerHash,
-        amount: Math.round(amount * 100), // Converte para centavos (integer)
-        payment_method: 'pix',
-        customer: {
-          name: sanitizedName,
-          email: email,
-          phone_number: "119" + Math.floor(10000000 + Math.random() * 90000000), // Telefone aleatório no formato correto
-          document: generateCPF() // CPF matematicamente válido gerado dinamicamente
-        },
-        cart: [
-          {
-            product_hash: "7vm6iz3wzi", // Hash do produto SALDO PESCA ONLINE cadastrado
-            title: "SALDO PESCA ONLINE",
-            price: Math.round(amount * 100),
-            quantity: 1,
-            operation_type: 1, // Venda do produtor
-            tangible: false
-          }
-        ],
-        transaction_origin: "api",
-        postback_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/tribopay`
-      };
-
-      const response = await callProxyForwarder(targetUrl, payload, 'POST');
-      const resource = response.data || response;
-
-      const transactionId = resource.hash || resource.id || resource.transaction_hash;
-      const qrCodeText = resource.pix?.pix_qr_code || resource.pix?.qrcode || resource.pix?.code || resource.payment_response?.qrcode || '';
-      
-      // Tentar obter a imagem retornada pela API, senão gera o QR Code em Base64 localmente
-      let finalQrCodeImage = resource.pix?.qr_code_base64 || resource.pix?.qrcode_image || resource.pix?.imageBase64 || resource.payment_response?.qrcode_image || '';
-      if (!finalQrCodeImage && qrCodeText) {
-        try {
-          finalQrCodeImage = await QRCode.toDataURL(qrCodeText);
-        } catch (qrErr) {
-          console.error("Erro ao gerar QR Code localmente:", qrErr);
-          finalQrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`;
-        }
-      }
-
-      return {
-        success: true,
-        id: transactionId,
-        qrCodeText,
-        qrCodeImage: finalQrCodeImage,
-        amount
-      };
-    } else {
-      // Fallback para a API de depósitos legada (Cash-In)
-      const targetUrl = 'https://api.tribopay.com.br/api/public/cash/deposits/pix';
-      const payload = {
-        amount: Math.round(amount * 100),
-        method: 'pix',
-        transactionOrigin: 'cashin',
-        payer: {
-          name: sanitizedName,
-          email
-        },
-        postbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/tribopay`
-      };
-
-      const response = await callProxyForwarder(targetUrl, payload, 'POST');
-      const resource = response.data || response;
-
-      const qrCodeText = resource.pix?.code || '';
-      let finalQrCodeImage = resource.pix?.imageBase64 || '';
-      if (!finalQrCodeImage && qrCodeText) {
-        try {
-          finalQrCodeImage = await QRCode.toDataURL(qrCodeText);
-        } catch (qrErr) {
-          console.error("Erro ao gerar QR Code localmente:", qrErr);
-          finalQrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`;
-        }
-      }
-
-      return {
-        success: true,
-        id: resource.id,
-        qrCodeText,
-        qrCodeImage: finalQrCodeImage,
-        amount
-      };
+    if (lastError) {
+      throw lastError;
     }
+
+    const resource = response.data || response;
+    const transactionId = getFirstString(
+      resource.payment_id,
+      resource.id,
+      resource.transaction_id,
+      resource.transactionId,
+      resource.transaction?.id,
+      resource.transaction?.payment_id
+    ) || localId;
+    const gatewayId = getFirstString(
+      resource.transaction_id,
+      resource.transactionId,
+      resource.transaction?.id,
+      resource.hash
+    );
+    const qrCodeText = getFirstString(
+      resource.pix?.copy_paste,
+      resource.pix?.copyPaste,
+      resource.pix?.qr_code_text,
+      resource.pix?.qrCodeText,
+      resource.pix?.code,
+      resource.pix?.qrcode,
+      resource.pix?.qrCode,
+      resource.copy_paste,
+      resource.qrCodeText,
+      resource.brcode
+    );
+    let qrCodeImage = normalizeQrCodeImage(getFirstString(
+      resource.pix?.qr_code,
+      resource.pix?.qrCodeImage,
+      resource.pix?.qrcode_image,
+      resource.pix?.image,
+      resource.qrCodeImage,
+      resource.qrcode_image
+    ));
+
+    if (!qrCodeText) {
+      throw new Error("A Vizzion Pay nao retornou o codigo Pix copia e cola.");
+    }
+
+    // Se o gateway não retornou imagem do QR Code, geramos localmente
+    if (!qrCodeImage) {
+      try {
+        qrCodeImage = await QRCode.toDataURL(qrCodeText);
+      } catch (qrErr) {
+        console.error("Erro ao gerar QR Code localmente:", qrErr);
+        qrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCodeText)}`;
+      }
+    }
+
+    return {
+      success: true,
+      id: transactionId,
+      identifier: localId,
+      gatewayId,
+      qrCodeText,
+      qrCodeImage,
+      amount
+    };
   } catch (error: any) {
-    console.error("Erro ao criar cobrança Pix na TriboPay:", error);
+    console.error("Erro ao criar cobrança Pix na Vizzion Pay:", error);
     throw error;
   }
 }
@@ -283,74 +368,113 @@ export async function executePixPayout(
   recipientName: string,
   recipientDocument: string,
   pixKeyType: 'document' | 'email' | 'phone_number' | 'aleatory',
-  withdrawalId: string
+  withdrawalId: string,
+  ip: string = '179.241.195.127'
 ): Promise<PixPayoutResponse> {
-  const amountInCents = Math.round(amount * 100);
-
   if (!isLivePaymentsConfigured) {
     // Modo Simulação/Demo
     console.log(`[PaymentService] Simulando transferência Pix de R$ ${amount.toFixed(2)} para ${pixKey}`);
     return {
       success: true,
-      id: "tp_pay_" + Math.random().toString(36).substring(2, 11),
+      id: "vp_pay_" + Math.random().toString(36).substring(2, 11),
       amount,
       status: 'approved'
     };
   }
 
-  // --- INTEGRAÇÃO REAL VIA PROXY ---
+  // --- INTEGRAÇÃO REAL VIA PROXY (VIZZION PAY) ---
   try {
-    const targetUrl = 'https://api.tribopay.com.br/api/public/cash/withdrawals';
+    const targetUrl = getConfiguredUrl('VIZZIONPAY_PIX_TRANSFER_URL', '/gateway/transfers');
+    const cleanDoc = recipientDocument.replace(/\D/g, '');
+    const docType = cleanDoc.length === 14 ? 'cnpj' : 'cpf';
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://pesca-junina.vercel.app'}/api/webhook/vizzionpay`;
+
     const payload = {
-      amount: amountInCents, // Saques exigem o valor em centavos (integer)
-      type: 'pix',
-      externalId: withdrawalId,
-      postbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sua-plataforma.vercel.app'}/api/webhook/tribopay`,
-      recipient: {
-        name: recipientName,
-        document: recipientDocument.replace(/\D/g, ''),
-        pixKeyType,
-        pixKey
-      }
+      identifier: withdrawalId,
+      amount,
+      discountFeeOfReceiver: false,
+      pix: {
+        type: mapPixKeyType(pixKeyType, pixKey),
+        key: pixKey
+      },
+      owner: {
+        ip: ip,
+        name: sanitizeRecipientName(recipientName),
+        document: {
+          type: docType,
+          number: cleanDoc
+        }
+      },
+      callbackUrl
     };
 
     const response = await callProxyForwarder(targetUrl, payload, 'POST');
     const resource = response.data || response;
+    const withdraw = resource.withdraw || resource.transfer || resource;
+    const gatewayStatus = getFirstString(withdraw?.status, resource.status).toUpperCase();
+    const payoutId = getFirstString(
+      withdraw?.id,
+      resource.id,
+      resource.withdraw_id,
+      resource.transfer_id,
+      resource.transaction_id,
+      resource.webhookToken,
+      withdrawalId
+    );
+
+    const statusMap: Record<string, 'pending' | 'approved' | 'rejected'> = {
+      'PENDING': 'pending',
+      'PROCESSING': 'pending',
+      'TRANSFERRING': 'pending',
+      'APPROVED': 'approved',
+      'PAID': 'approved',
+      'COMPLETED': 'approved',
+      'SUCCESS': 'approved',
+      'CANCELED': 'rejected',
+      'CANCELLED': 'rejected',
+      'FAILED': 'rejected',
+      'REJECTED': 'rejected'
+    };
 
     return {
       success: true,
-      id: resource.id,
+      id: payoutId,
       amount,
-      status: resource.status === 'transferred' || resource.status === 'completed' ? 'approved' : 'pending'
+      status: statusMap[gatewayStatus] || 'pending'
     };
   } catch (error: any) {
-    console.error("Erro ao efetuar transferência Pix na TriboPay:", error);
+    console.error("Erro ao efetuar transferência Pix na Vizzion Pay:", error);
     throw error;
   }
 }
 
 /**
- * Consulta o status de um depósito na TriboPay para checagem ativa de segurança
+ * Consulta o status de um depósito na Vizzion Pay para checagem ativa de segurança
  */
 export async function verifyDepositStatus(depositId: string): Promise<any> {
   if (!isLivePaymentsConfigured) {
-    return { status: 'paid' };
+    return { status: 'approved' };
   }
+
+  let lastError: any = null;
+
   try {
-    const tribopayToken = process.env.TRIBOPAY_TOKEN || '';
-    // Tenta primeiro no endpoint v1/transactions
-    let response;
-    try {
-      const targetUrl = `https://api.tribopay.com.br/api/public/v1/transactions/${depositId}?api_token=${tribopayToken}`;
-      response = await callProxyForwarder(targetUrl, null, 'GET');
-    } catch (e) {
-      // Fallback para o endpoint legado se v1 falhar
-      const targetUrl = `https://api.tribopay.com.br/api/public/cash/deposits/${depositId}`;
-      response = await callProxyForwarder(targetUrl, null, 'GET');
+    for (const targetUrl of getPixStatusUrls(depositId)) {
+      try {
+        const response = await callProxyForwarder(targetUrl, null, 'GET');
+        return response.data || response;
+      } catch (error: any) {
+        lastError = error;
+
+        if (!isEndpointNotFound(error)) {
+          throw error;
+        }
+      }
     }
-    return response.data || response;
+
+    throw lastError;
   } catch (error) {
-    console.error(`Erro ao consultar status do depósito ${depositId}:`, error);
+    console.error(`Erro ao consultar status do depósito ${depositId} na Vizzion Pay:`, error);
     throw error;
   }
 }
@@ -372,4 +496,3 @@ export function determinePixKeyType(key: string): 'document' | 'email' | 'phone_
   }
   return 'aleatory'; // Chave aleatória / EVP
 }
-

@@ -35,6 +35,9 @@ export async function POST(req: Request) {
         amount,
         status: 'pending' as const,
         receiptUrl,
+        identifier: pixData.identifier,
+        gatewayPaymentId: pixData.id,
+        gatewayTransactionId: pixData.gatewayId || null,
         qrCodeText: pixData.qrCodeText,
         qrCodeImage: pixData.qrCodeImage,
         createdAt,
@@ -68,6 +71,9 @@ export async function POST(req: Request) {
       amount,
       status: 'pending',
       receiptUrl: receiptUrl || null,
+      identifier: pixData.identifier,
+      gatewayPaymentId: pixData.id,
+      gatewayTransactionId: pixData.gatewayId || null,
       qrCodeText: pixData.qrCodeText,
       qrCodeImage: pixData.qrCodeImage,
       createdAt,
@@ -79,6 +85,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       success: true, 
       id: depositRef.id,
+      deposit: {
+        id: depositRef.id,
+        ...depositData
+      },
       qrCodeText: pixData.qrCodeText,
       qrCodeImage: pixData.qrCodeImage
     });
@@ -88,4 +98,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message || 'Erro interno do servidor' }, { status: 500 });
   }
 }
-
