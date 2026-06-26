@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
 import { JuninaBackground } from '../../components/JuninaBackground';
 import { HeaderHUD } from '../../components/HeaderHUD';
+import { MIN_PIX_WITHDRAWAL_AMOUNT, getMinPixWithdrawalMessage } from '../../lib/paymentLimits';
 import { 
   Wallet as WalletIcon, 
   Coins, 
@@ -126,6 +127,11 @@ export default function WalletPage() {
     const val = parseFloat(withdrawAmount);
     if (isNaN(val) || val <= 0) {
       setError("Por favor, insira um valor válido de saque.");
+      return;
+    }
+
+    if (val < MIN_PIX_WITHDRAWAL_AMOUNT) {
+      setError(getMinPixWithdrawalMessage());
       return;
     }
 
@@ -388,11 +394,11 @@ export default function WalletPage() {
                     <div className="relative">
                       <input
                         type="number"
-                        placeholder="Ex: 25,00"
+                        placeholder="Ex: 5,00"
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                         className="w-full py-3 pl-10 pr-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none transition-colors"
-                        min="1"
+                        min={MIN_PIX_WITHDRAWAL_AMOUNT}
                         step="0.01"
                         required
                       />

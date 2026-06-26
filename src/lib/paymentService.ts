@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { MIN_PIX_WITHDRAWAL_AMOUNT, getMinPixWithdrawalMessage } from './paymentLimits';
 
 export interface PixChargeResponse {
   success: boolean;
@@ -511,6 +512,10 @@ export async function executePixPayout(
   withdrawalId: string,
   ip: string = '179.241.195.127'
 ): Promise<PixPayoutResponse> {
+  if (!Number.isFinite(amount) || amount < MIN_PIX_WITHDRAWAL_AMOUNT) {
+    throw new Error(getMinPixWithdrawalMessage());
+  }
+
   if (!isLivePaymentsConfigured) {
     // Modo Simulação/Demo
     console.log(`[PaymentService] Simulando transferência Pix de R$ ${amount.toFixed(2)} para ${pixKey}`);

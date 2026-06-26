@@ -120,7 +120,8 @@ export async function POST(req: Request) {
         externalPayoutId = payoutRes.id;
       } catch (payoutError: any) {
         const message = payoutError.message || 'Erro de comunicação com a Vizzion Pay';
-        const status = message.includes('invalido') || message.includes('invalida') ? 400 : 500;
+        const lowerMessage = message.toLowerCase();
+        const status = lowerMessage.includes('invalido') || lowerMessage.includes('invalida') || lowerMessage.includes('minimo') ? 400 : 500;
         return NextResponse.json({ error: `Falha na transferência Pix: ${message}` }, { status });
       }
     }

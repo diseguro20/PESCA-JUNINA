@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { normalizePixKeyForGateway, validateRecipientDocument } from '../../../../lib/paymentService';
+import { MIN_PIX_WITHDRAWAL_AMOUNT, getMinPixWithdrawalMessage } from '../../../../lib/paymentLimits';
 
 function getRequestIp(req: Request): string {
   const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
@@ -18,6 +19,10 @@ export async function POST(req: Request) {
 
     if (amount <= 0) {
       return NextResponse.json({ error: 'O valor do saque deve ser maior que zero' }, { status: 400 });
+    }
+
+    if (amount < MIN_PIX_WITHDRAWAL_AMOUNT) {
+      return NextResponse.json({ error: getMinPixWithdrawalMessage() }, { status: 400 });
     }
 
     try {
