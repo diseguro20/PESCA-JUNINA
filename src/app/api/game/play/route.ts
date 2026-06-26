@@ -104,7 +104,12 @@ export async function POST(req: Request) {
         fishType: fish.name,
         fishColor: fish.color,
         balance: newBalance,
-        previousBalance
+        previousBalance,
+        wallet: {
+          balance: newBalance,
+          lockedBalance: wallet.lockedBalance || 0,
+          updatedAt: wallet.updatedAt
+        }
       });
     }
 
@@ -175,11 +180,12 @@ export async function POST(req: Request) {
       const winAmount = Number((betAmount * chosenMultiplier.value).toFixed(2));
       const previousBalance = wallet.balance;
       const newBalance = Number((previousBalance - betAmount + winAmount).toFixed(2));
+      const updatedAt = new Date().toISOString();
 
       // 7. Atualizar Carteira (Primeiro Write)
       transaction.update(walletDocRef, {
         balance: newBalance,
-        updatedAt: new Date().toISOString()
+        updatedAt
       });
 
       // 8. Criar rodada de jogo (Segundo Write)
@@ -226,7 +232,12 @@ export async function POST(req: Request) {
         fishType: fish.name,
         fishColor: fish.color,
         balance: newBalance,
-        previousBalance
+        previousBalance,
+        wallet: {
+          balance: newBalance,
+          lockedBalance: wallet.lockedBalance || 0,
+          updatedAt
+        }
       };
     });
 

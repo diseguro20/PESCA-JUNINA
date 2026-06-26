@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   doc, 
   collection, 
@@ -127,6 +127,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [minBet, setMinBet] = useState(1.00);
   const [maxBet, setMaxBet] = useState(500.00);
   const [loading, setLoading] = useState(true);
+  const playInFlightRef = useRef(false);
 
   // Função para recarregar dados via REST (especial para Modo Demo ou atualizações forçadas)
   const refreshAllData = async () => {
@@ -323,29 +324,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Jogar Rodada
   const playFishingRound = async (betAmount: number) => {
-    if (!user) throw new Error("Usuário não autenticado");
-    if (betAmount < minBet || betAmount > maxBet) {
-      throw new Error(`O valor da aposta deve ser entre R$ ${minBet.toFixed(2)} e R$ ${maxBet.toFixed(2)}`);
-    }
-    if (!wallet || wallet.balance < betAmount) {
-      throw new Error("Saldo insuficiente!");
+    if (playInFlightRef.current) {
+      throw new Error("A pescaria anterior ainda esta sendo sincronizada.");
     }
 
-    const res = await fetch('/api/game/play', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: user.uid, betAmount })
-    });
+    playInFlightRef.current = true;
+    try {
+      if (!user) throw new Error("Usuário não autenticado");
+      if (betAmount < minBet || betAmount > maxBet) {
+        throw new Error(`O valor da aposta deve ser entre R$ ${minBet.toFixed(2)} e R$ ${maxBet.toFixed(2)}`);
+      }
+      if (!wallet || wallet.balance < betAmount) {
+        throw new Error("Saldo insuficiente!");
+      }
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erro ao processar jogada');
+      const res = await fetch('/api/game/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid, betAmount })
+      });
 
-    // Se estiver no modo demo, forçar atualização local
-    if (isDemoMode) {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao processar jogada');
+
+      if (data.wallet) {
+        setWallet(data.wallet);
+      } else if (typeof data.balance === 'number') {
+        setWallet((current) => current ? { ...current, balance: data.balance, updatedAt: new Date().toISOString() } : current);
+      }
+
       await refreshAllData();
-    }
 
-    return data; // { winAmount, multiplier, fishType, fishColor, balance }
+      return data; // { winAmount, multiplier, fishType, fishColor, balance, wallet }
+    } finally {
+      playInFlightRef.current = false;
+    }
   };
 
   // Solicitar Depósito
