@@ -722,7 +722,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
         setTimeout(() => {
           bobberTwitchRef.current = false;
         }, 180);
-      }, 1100);
+      }, 40);
 
       setTimeout(() => {
         bobberTwitchRef.current = true;
@@ -742,8 +742,8 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           
           // Animar recolhimento com inércia
           animateReeling(result, bX, bY);
-        }, 300);
-      }, 2300);
+        }, 20);
+      }, 80);
 
     } catch (error: any) {
       setGameStatus('waiting');
@@ -759,7 +759,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
   const animateReeling = (result: any, startX: number, startY: number) => {
     let progress = 0;
     const reelInterval = setInterval(() => {
-      progress += 0.055; // Velocidade do recolhimento
+      progress += 1; // Captura imediata ao fisgar
       if (progress >= 1) {
         clearInterval(reelInterval);
         setGameStatus('waiting');
@@ -1008,7 +1008,7 @@ export const LakeArea: React.FC<LakeAreaProps> = ({
           {gameStatus === 'waiting' && 'ARREMESSAR VARA (PESCAR)'}
           {gameStatus === 'preparing' && 'Arremessando...'}
           {gameStatus === 'fishing' && 'Aguardando peixe...'}
-          {gameStatus === 'caught' && 'Fisgou! Recolhendo...'}
+          {gameStatus === 'caught' && 'Fisgou! Capturando...'}
         </button>
 
       </div>
