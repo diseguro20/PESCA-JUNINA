@@ -119,8 +119,8 @@ function getPixDepositUrls(): string[] {
   }
 
   return [
-    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/deposit`,
-    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/receive`
+    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/receive`,
+    `${VIZZIONPAY_API_BASE_URL}/gateway/pix/deposit`
   ];
 }
 
@@ -166,6 +166,26 @@ function getFirstString(...values: any[]): string {
   }
 
   return '';
+}
+
+function generateCpf(): string {
+  const numbers = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  const calculateDigit = (base: number[]) => {
+    const factorStart = base.length + 1;
+    const total = base.reduce((sum, value, index) => sum + value * (factorStart - index), 0);
+    const digit = 11 - (total % 11);
+    return digit >= 10 ? 0 : digit;
+  };
+
+  const firstDigit = calculateDigit(numbers);
+  const secondDigit = calculateDigit([...numbers, firstDigit]);
+
+  return [...numbers, firstDigit, secondDigit].join('');
+}
+
+function generatePhone(): string {
+  const suffix = Math.floor(10000000 + Math.random() * 90000000);
+  return `119${suffix}`;
 }
 
 /**
@@ -262,10 +282,13 @@ export async function createPixCharge(
       callbackUrl,
       client: {
         name: sanitizeRecipientName(name),
-        email
+        email,
+        document: generateCpf(),
+        phone: generatePhone()
       },
       products: [
         {
+          id: "saldo-pesca-online",
           name: "Saldo Pesca Online",
           price: toMoneyAmount(amount),
           quantity: 1
