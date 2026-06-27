@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb } from '../../../../lib/mockDb';
 
+function getCreatedAtTime(item: any): number {
+  const value = item?.createdAt;
+  if (!value) return 0;
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortNewestFirst<T>(items: T[]): T[] {
+  return items.sort((a: any, b: any) => getCreatedAtTime(b) - getCreatedAtTime(a));
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -76,11 +88,11 @@ export async function GET(req: Request) {
         response.adminLogs = dbData.adminLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         
         // Mapear usuários com seus respectivos saldos
-        response.users = Object.values(dbData.users).map(u => ({
+        response.users = sortNewestFirst(Object.values(dbData.users).map(u => ({
           ...u,
           balance: dbData.wallets[u.uid]?.balance || 0,
           lockedBalance: dbData.wallets[u.uid]?.lockedBalance || 0
-        }));
+        })));
 
         // Adicionar depósitos e saques de todos os usuários para o painel admin
         response.allDeposits = dbData.deposits.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -178,7 +190,7 @@ export async function GET(req: Request) {
           lockedBalance: wData.lockedBalance || 0
         });
       }
-      response.users = usersList;
+      response.users = sortNewestFirst(usersList);
 
       // Adicionar todas as transações para admin
       const allDepSnap = await adminDb.collection('deposits').orderBy('createdAt', 'desc').get();

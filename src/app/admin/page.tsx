@@ -268,7 +268,11 @@ export default function AdminPage() {
   // Filtragem rápida de dados locais
   const pendingDeposits = adminData?.allDeposits?.filter((d: any) => d.status === 'pending') || [];
   const pendingWithdrawals = adminData?.allWithdrawals?.filter((w: any) => w.status === 'pending') || [];
-  const allUsers = adminData?.users || [];
+  const allUsers = [...(adminData?.users || [])].sort((a: any, b: any) => {
+    const aTime = new Date(a.createdAt || 0).getTime();
+    const bTime = new Date(b.createdAt || 0).getTime();
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  });
   const auditLogs = adminData?.adminLogs || [];
 
   return (
@@ -502,6 +506,7 @@ export default function AdminPage() {
                 <thead>
                   <tr className="bg-junina-blue-deep/60 text-[10px] font-black uppercase text-gray-400 tracking-wider border-b border-white/5">
                     <th className="py-4 px-6">Nome / E-mail</th>
+                    <th className="py-4 px-6">Cadastrado em</th>
                     <th className="py-4 px-6">Privilégio</th>
                     <th className="py-4 px-6">Status</th>
                     <th className="py-4 px-6">Saldo Disponível</th>
@@ -515,6 +520,9 @@ export default function AdminPage() {
                       <td className="py-4 px-6 flex flex-col">
                         <span className="font-extrabold text-white">{u.name}</span>
                         <span className="text-[10px] text-gray-500">{u.email}</span>
+                      </td>
+                      <td className="py-4 px-6 text-gray-400 whitespace-nowrap">
+                        {u.createdAt ? new Date(u.createdAt).toLocaleString('pt-BR') : '-'}
                       </td>
                       <td className="py-4 px-6">
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${

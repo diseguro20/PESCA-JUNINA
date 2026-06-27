@@ -303,6 +303,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         snap.forEach((d) => {
           items.push({ uid: d.id, ...d.data() });
         });
+        items.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         setUsersList(items);
       }, (error) => {
         console.error("Erro ao escutar lista de usuários:", error);
