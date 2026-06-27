@@ -65,6 +65,13 @@ export default function WalletPage() {
 
   const displayBalance = wallet?.balance ?? 0;
   const lockedBalance = wallet?.lockedBalance ?? 0;
+  const bonusLockedAmount = wallet?.bonusLockedAmount ?? 0;
+  const withdrawableBalance = Math.max(0, Number((displayBalance - bonusLockedAmount).toFixed(2)));
+  const bonusRolloverProgress = wallet?.bonusRolloverProgress ?? 0;
+  const bonusRolloverRequired = wallet?.bonusRolloverRequired ?? 0;
+  const bonusRolloverPercent = bonusRolloverRequired > 0
+    ? Math.min(100, Math.round((bonusRolloverProgress / bonusRolloverRequired) * 100))
+    : 0;
   const hasApprovedDeposit = deposits.some((deposit) => deposit.status === 'approved' || deposit.status === 'paid');
   const firstDepositBonusAvailable = !wallet?.firstDepositBonusApplied && !hasApprovedDeposit;
   const numericDepositAmount = Number(depositAmount) || 0;
@@ -144,8 +151,10 @@ export default function WalletPage() {
       return;
     }
 
-    if (val > displayBalance) {
-      setError("Saldo disponível insuficiente!");
+    if (val > withdrawableBalance) {
+      setError(bonusLockedAmount > 0
+        ? `Voce tem bonus preso por rollover. Disponivel para saque agora: R$ ${withdrawableBalance.toFixed(2)}.`
+        : "Saldo disponível insuficiente!");
       return;
     }
 
@@ -189,9 +198,9 @@ export default function WalletPage() {
               <WalletIcon className="w-4 h-4 text-junina-gold" /> Saldo da Carteira
             </span>
 
-            {/* Saldo Disponível */}
+            {/* Saldo total para jogar */}
             <div className="flex flex-col mb-4">
-              <span className="text-xs text-gray-300">Saldo Disponível</span>
+              <span className="text-xs text-gray-300">Saldo Total para Jogar</span>
               <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-junina-gold via-junina-orange to-junina-red mt-1">
                 R$ {displayBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
@@ -208,6 +217,33 @@ export default function WalletPage() {
                 R$ {lockedBalance.toFixed(2)}
               </span>
             </div>
+
+            <div className="flex justify-between items-center text-xs text-gray-400 mt-3">
+              <span className="flex items-center gap-1">
+                <Coins className="w-3.5 h-3.5" /> Liberado para Saque
+              </span>
+              <span className="font-extrabold text-junina-green">
+                R$ {withdrawableBalance.toFixed(2)}
+              </span>
+            </div>
+
+            {bonusLockedAmount > 0 && (
+              <div className="mt-4 p-3.5 rounded-2xl bg-junina-gold/10 border border-junina-gold/30 text-left">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-black text-junina-gold uppercase">Bonus em rollover</span>
+                  <span className="font-black text-white">R$ {bonusLockedAmount.toFixed(2)}</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-junina-blue-deep/70 overflow-hidden border border-white/5">
+                  <div
+                    className="h-full bg-gradient-to-r from-junina-green to-junina-gold"
+                    style={{ width: `${bonusRolloverPercent}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-300 mt-2 leading-relaxed">
+                  Progresso: R$ {bonusRolloverProgress.toFixed(2)} / R$ {bonusRolloverRequired.toFixed(2)} apostados. Ao completar, o bonus fica liberado para saque.
+                </p>
+              </div>
+            )}
 
             {/* Rodapé explicativo */}
             {lockedBalance > 0 && (

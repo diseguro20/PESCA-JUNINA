@@ -18,6 +18,9 @@ export interface Wallet {
   balance: number;
   lockedBalance: number;
   firstDepositBonusApplied?: boolean;
+  bonusLockedAmount?: number;
+  bonusRolloverProgress?: number;
+  bonusRolloverRequired?: number;
   updatedAt: string;
 }
 
@@ -47,6 +50,7 @@ export interface Deposit {
   bonusAmount?: number;
   creditedAmount?: number;
   firstDepositBonusApplied?: boolean;
+  autoConfirmed?: boolean;
   qrCodeText?: string;
   qrCodeImage?: string;
   createdAt: string;
@@ -96,6 +100,7 @@ interface GameContextType {
   usersList: any[];
   minBet: number;
   maxBet: number;
+  bonusRolloverMultiplier: number;
   loading: boolean;
   playFishingRound: (betAmount: number) => Promise<any>;
   createDepositRequest: (amount: number, receiptUrl?: string) => Promise<any>;
@@ -112,7 +117,7 @@ interface GameContextType {
   approveWithdrawal: (withdrawalId: string) => Promise<void>;
   rejectWithdrawal: (withdrawalId: string) => Promise<void>;
   toggleUserStatus: (uid: string, currentStatus: string) => Promise<void>;
-  updateGameSettings: (minBet: number, maxBet: number, multipliers: Multiplier[]) => Promise<void>;
+  updateGameSettings: (minBet: number, maxBet: number, multipliers: Multiplier[], bonusRolloverMultiplier?: number) => Promise<void>;
   refreshAllData: () => Promise<void>;
 }
 
@@ -130,6 +135,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [usersList, setUsersList] = useState<any[]>([]);
   const [minBet, setMinBet] = useState(1.00);
   const [maxBet, setMaxBet] = useState(500.00);
+  const [bonusRolloverMultiplier, setBonusRolloverMultiplier] = useState(2);
   const [loading, setLoading] = useState(true);
   const playInFlightRef = useRef(false);
 
@@ -148,6 +154,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setMultipliers(data.multipliers);
         setMinBet(data.settings?.minBet || 1.00);
         setMaxBet(data.settings?.maxBet || 500.00);
+        setBonusRolloverMultiplier(data.settings?.bonusRolloverMultiplier || 2);
 
         if (user.role === 'admin') {
           setAdminLogs(data.adminLogs || []);
@@ -267,6 +274,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = docSnap.data();
         setMinBet(data.minBet || 1.00);
         setMaxBet(data.maxBet || 500.00);
+        setBonusRolloverMultiplier(data.bonusRolloverMultiplier || 2);
       }
     }, (error) => {
       console.error("Erro ao escutar configurações:", error);
@@ -515,7 +523,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // ADMIN: Salvar Configurações do Jogo
-  const updateGameSettings = async (newMin: number, newMax: number, newMultipliers: Multiplier[]) => {
+  const updateGameSettings = async (newMin: number, newMax: number, newMultipliers: Multiplier[], newBonusRolloverMultiplier: number = bonusRolloverMultiplier) => {
     if (!user || user.role !== 'admin') throw new Error("Não autorizado");
 
     const res = await fetch('/api/admin/config', {
@@ -525,6 +533,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         adminUid: user.uid, 
         minBet: newMin, 
         maxBet: newMax, 
+        bonusRolloverMultiplier: newBonusRolloverMultiplier,
         multipliers: newMultipliers 
       })
     });
@@ -549,6 +558,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       usersList,
       minBet,
       maxBet,
+      bonusRolloverMultiplier,
       loading,
       playFishingRound,
       createDepositRequest,

@@ -181,13 +181,15 @@ async function hasPreviousApprovedDeposit(uid: string, currentDepositId?: string
     return false;
   }
 
-  const approvedSnap = await adminDb.collection('deposits')
+  const depositsSnap = await adminDb.collection('deposits')
     .where('uid', '==', uid)
-    .where('status', 'in', ['approved', 'paid'])
-    .limit(3)
+    .limit(20)
     .get();
 
-  return approvedSnap.docs.some((doc: any) => doc.id !== currentDepositId);
+  return depositsSnap.docs.some((doc: any) =>
+    doc.id !== currentDepositId &&
+    ['approved', 'paid'].includes(doc.data()?.status)
+  );
 }
 
 function extractVerifiedStatus(data: any): string {
@@ -309,6 +311,8 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
     }
 
     depositRecord.status = 'approved';
+    (depositRecord as any).autoConfirmed = true;
+    (depositRecord as any).confirmedBy = 'vizzionpay_webhook';
     depositRecord.gatewayPaymentId = deposit.paymentId || depositRecord.gatewayPaymentId;
     depositRecord.gatewayTransactionId = deposit.gatewayTransactionId || depositRecord.gatewayTransactionId || null;
     depositRecord.gatewayStatus = deposit.status;
@@ -320,12 +324,16 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
       (d.status === 'approved' || d.status === 'paid')
     );
     const bonusEligible = !hasPreviousApproved && !(wallet as any).firstDepositBonusApplied;
-    const credit = calculateFirstDepositCredit(depositRecord.amount, bonusEligible);
+    const credit = calculateFirstDepositCredit(depositRecord.amount, bonusEligible, (dbData.settings as any).bonusRolloverMultiplier || 2);
 
     (depositRecord as any).bonusAmount = credit.bonusAmount;
     (depositRecord as any).creditedAmount = credit.creditedAmount;
     (depositRecord as any).firstDepositBonusApplied = credit.bonusApplied;
+    (depositRecord as any).bonusRolloverRequired = credit.rolloverRequired;
     (wallet as any).firstDepositBonusApplied = Boolean((wallet as any).firstDepositBonusApplied || hasPreviousApproved || credit.bonusApplied);
+    (wallet as any).bonusLockedAmount = Number((((wallet as any).bonusLockedAmount || 0) + credit.bonusAmount).toFixed(2));
+    (wallet as any).bonusRolloverRequired = Number((((wallet as any).bonusRolloverRequired || 0) + credit.rolloverRequired).toFixed(2));
+    (wallet as any).bonusRolloverProgress = Number(((wallet as any).bonusRolloverProgress || 0).toFixed(2));
     wallet.balance = Number((wallet.balance + credit.creditedAmount).toFixed(2));
     wallet.updatedAt = updatedAt;
 
@@ -356,6 +364,8 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
   }
 
   const walletRef = adminDb.collection('wallets').doc(match.data.uid);
+  const settingsSnap = await adminDb.collection('settings').doc('game').get();
+  const rolloverMultiplier = settingsSnap.exists ? (settingsSnap.data()?.bonusRolloverMultiplier || 2) : 2;
   const hasPreviousApproved = await hasPreviousApprovedDeposit(match.data.uid, match.ref.id);
   let alreadyProcessed = false;
 
@@ -379,7 +389,7 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
       const walletSnap = await transaction.get(walletRef);
       const wallet = walletSnap.exists ? walletSnap.data()! : null;
       const bonusEligible = !hasPreviousApproved && !wallet?.firstDepositBonusApplied;
-      const credit = calculateFirstDepositCredit(depositData.amount, bonusEligible);
+      const credit = calculateFirstDepositCredit(depositData.amount, bonusEligible, rolloverMultiplier);
 
       if (!walletSnap.exists) {
         transaction.set(walletRef, {
@@ -387,12 +397,18 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
           balance: credit.creditedAmount,
           lockedBalance: 0,
           firstDepositBonusApplied: credit.bonusApplied || hasPreviousApproved,
+          bonusLockedAmount: credit.bonusAmount,
+          bonusRolloverRequired: credit.rolloverRequired,
+          bonusRolloverProgress: 0,
           updatedAt
         });
       } else {
         transaction.update(walletRef, {
           balance: Number((wallet.balance + credit.creditedAmount).toFixed(2)),
           firstDepositBonusApplied: Boolean(wallet.firstDepositBonusApplied || hasPreviousApproved || credit.bonusApplied),
+          bonusLockedAmount: Number(((wallet.bonusLockedAmount || 0) + credit.bonusAmount).toFixed(2)),
+          bonusRolloverRequired: Number(((wallet.bonusRolloverRequired || 0) + credit.rolloverRequired).toFixed(2)),
+          bonusRolloverProgress: Number((wallet.bonusRolloverProgress || 0).toFixed(2)),
           updatedAt
         });
       }
@@ -402,9 +418,12 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
         gatewayPaymentId: deposit.paymentId || depositData.gatewayPaymentId || null,
         gatewayTransactionId: deposit.gatewayTransactionId || depositData.gatewayTransactionId || null,
         gatewayStatus: deposit.status,
+        autoConfirmed: true,
+        confirmedBy: 'vizzionpay_webhook',
         paidAt: deposit.paidAt || updatedAt,
         bonusAmount: credit.bonusAmount,
         creditedAmount: credit.creditedAmount,
+        bonusRolloverRequired: credit.rolloverRequired,
         firstDepositBonusApplied: credit.bonusApplied,
         updatedAt
       });

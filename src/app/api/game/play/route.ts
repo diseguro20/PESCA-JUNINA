@@ -75,9 +75,18 @@ export async function POST(req: Request) {
       const winAmount = Number((betAmount * chosenMultiplier.value).toFixed(2));
       const previousBalance = wallet.balance;
       const newBalance = Number((previousBalance - betAmount + winAmount).toFixed(2));
+      const previousRolloverProgress = (wallet as any).bonusRolloverProgress || 0;
+      const rolloverRequired = (wallet as any).bonusRolloverRequired || 0;
+      const bonusLockedAmount = (wallet as any).bonusLockedAmount || 0;
+      const nextRolloverProgress = bonusLockedAmount > 0 ? Number((previousRolloverProgress + betAmount).toFixed(2)) : previousRolloverProgress;
+      const rolloverComplete = bonusLockedAmount > 0 && rolloverRequired > 0 && nextRolloverProgress >= rolloverRequired;
 
       // Atualizar dados na carteira
       wallet.balance = newBalance;
+      (wallet as any).bonusRolloverProgress = nextRolloverProgress;
+      if (rolloverComplete) {
+        (wallet as any).bonusLockedAmount = 0;
+      }
       wallet.updatedAt = new Date().toISOString();
 
       // Registrar rodada
@@ -108,6 +117,9 @@ export async function POST(req: Request) {
         wallet: {
           balance: newBalance,
           lockedBalance: wallet.lockedBalance || 0,
+          bonusLockedAmount: rolloverComplete ? 0 : bonusLockedAmount,
+          bonusRolloverProgress: nextRolloverProgress,
+          bonusRolloverRequired: rolloverRequired,
           updatedAt: wallet.updatedAt
         }
       });
@@ -181,10 +193,17 @@ export async function POST(req: Request) {
       const previousBalance = wallet.balance;
       const newBalance = Number((previousBalance - betAmount + winAmount).toFixed(2));
       const updatedAt = new Date().toISOString();
+      const previousRolloverProgress = wallet.bonusRolloverProgress || 0;
+      const rolloverRequired = wallet.bonusRolloverRequired || 0;
+      const bonusLockedAmount = wallet.bonusLockedAmount || 0;
+      const nextRolloverProgress = bonusLockedAmount > 0 ? Number((previousRolloverProgress + betAmount).toFixed(2)) : previousRolloverProgress;
+      const rolloverComplete = bonusLockedAmount > 0 && rolloverRequired > 0 && nextRolloverProgress >= rolloverRequired;
 
       // 7. Atualizar Carteira (Primeiro Write)
       transaction.update(walletDocRef, {
         balance: newBalance,
+        bonusRolloverProgress: nextRolloverProgress,
+        bonusLockedAmount: rolloverComplete ? 0 : bonusLockedAmount,
         updatedAt
       });
 
@@ -236,6 +255,9 @@ export async function POST(req: Request) {
         wallet: {
           balance: newBalance,
           lockedBalance: wallet.lockedBalance || 0,
+          bonusLockedAmount: rolloverComplete ? 0 : bonusLockedAmount,
+          bonusRolloverProgress: nextRolloverProgress,
+          bonusRolloverRequired: rolloverRequired,
           updatedAt
         }
       };

@@ -8,13 +8,15 @@ async function hasPreviousApprovedDeposit(uid: string, currentDepositId?: string
     return false;
   }
 
-  const approvedSnap = await adminDb.collection('deposits')
+  const depositsSnap = await adminDb.collection('deposits')
     .where('uid', '==', uid)
-    .where('status', 'in', ['approved', 'paid'])
-    .limit(3)
+    .limit(20)
     .get();
 
-  return approvedSnap.docs.some((doc: any) => doc.id !== currentDepositId);
+  return depositsSnap.docs.some((doc: any) =>
+    doc.id !== currentDepositId &&
+    ['approved', 'paid'].includes(doc.data()?.status)
+  );
 }
 
 export async function POST(req: Request) {
@@ -66,13 +68,19 @@ export async function POST(req: Request) {
           (d.status === 'approved' || d.status === 'paid')
         );
         const bonusEligible = !hasPreviousApproved && !(userWallet as any).firstDepositBonusApplied;
-        const credit = calculateFirstDepositCredit(deposit.amount, bonusEligible);
+        const credit = calculateFirstDepositCredit(deposit.amount, bonusEligible, (dbData.settings as any).bonusRolloverMultiplier || 2);
 
         deposit.status = 'approved';
+        (deposit as any).autoConfirmed = false;
+        (deposit as any).confirmedBy = adminUid;
         (deposit as any).bonusAmount = credit.bonusAmount;
         (deposit as any).creditedAmount = credit.creditedAmount;
         (deposit as any).firstDepositBonusApplied = credit.bonusApplied;
+        (deposit as any).bonusRolloverRequired = credit.rolloverRequired;
         (userWallet as any).firstDepositBonusApplied = Boolean((userWallet as any).firstDepositBonusApplied || hasPreviousApproved || credit.bonusApplied);
+        (userWallet as any).bonusLockedAmount = Number((((userWallet as any).bonusLockedAmount || 0) + credit.bonusAmount).toFixed(2));
+        (userWallet as any).bonusRolloverRequired = Number((((userWallet as any).bonusRolloverRequired || 0) + credit.rolloverRequired).toFixed(2));
+        (userWallet as any).bonusRolloverProgress = Number(((userWallet as any).bonusRolloverProgress || 0).toFixed(2));
         userWallet.balance = Number((userWallet.balance + credit.creditedAmount).toFixed(2));
         userWallet.updatedAt = updatedAt;
       } else {
@@ -108,6 +116,8 @@ export async function POST(req: Request) {
     const previousApproved = depositPreviewSnap?.exists
       ? await hasPreviousApprovedDeposit(depositPreviewSnap.data()!.uid, depositId)
       : false;
+    const settingsSnap = await adminDb.collection('settings').doc('game').get();
+    const rolloverMultiplier = settingsSnap.exists ? (settingsSnap.data()?.bonusRolloverMultiplier || 2) : 2;
 
     await adminDb.runTransaction(async (transaction: any) => {
       // 1. Validar admin
@@ -135,7 +145,7 @@ export async function POST(req: Request) {
       if (action === 'approve') {
         const walletData = walletSnap.exists ? walletSnap.data()! : null;
         const bonusEligible = !previousApproved && !walletData?.firstDepositBonusApplied;
-        const credit = calculateFirstDepositCredit(depositData.amount, bonusEligible);
+        const credit = calculateFirstDepositCredit(depositData.amount, bonusEligible, rolloverMultiplier);
 
         if (!walletSnap.exists) {
           transaction.set(walletDocRef, {
@@ -143,20 +153,29 @@ export async function POST(req: Request) {
             balance: credit.creditedAmount,
             lockedBalance: 0,
             firstDepositBonusApplied: credit.bonusApplied || previousApproved,
+            bonusLockedAmount: credit.bonusAmount,
+            bonusRolloverRequired: credit.rolloverRequired,
+            bonusRolloverProgress: 0,
             updatedAt
           });
         } else {
           transaction.update(walletDocRef, {
             balance: Number((walletData.balance + credit.creditedAmount).toFixed(2)),
             firstDepositBonusApplied: Boolean(walletData.firstDepositBonusApplied || previousApproved || credit.bonusApplied),
+            bonusLockedAmount: Number(((walletData.bonusLockedAmount || 0) + credit.bonusAmount).toFixed(2)),
+            bonusRolloverRequired: Number(((walletData.bonusRolloverRequired || 0) + credit.rolloverRequired).toFixed(2)),
+            bonusRolloverProgress: Number((walletData.bonusRolloverProgress || 0).toFixed(2)),
             updatedAt
           });
         }
 
         transaction.update(depositDocRef, {
           status: 'approved',
+          autoConfirmed: false,
+          confirmedBy: adminUid,
           bonusAmount: credit.bonusAmount,
           creditedAmount: credit.creditedAmount,
+          bonusRolloverRequired: credit.rolloverRequired,
           firstDepositBonusApplied: credit.bonusApplied,
           updatedAt
         });

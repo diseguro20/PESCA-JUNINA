@@ -4,7 +4,7 @@ import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 
 export async function POST(req: Request) {
   try {
-    const { adminUid, minBet, maxBet, multipliers } = await req.json();
+    const { adminUid, minBet, maxBet, multipliers, bonusRolloverMultiplier = 2 } = await req.json();
 
     if (!adminUid || minBet === undefined || maxBet === undefined || !multipliers || !Array.isArray(multipliers)) {
       return NextResponse.json({ error: 'Campos adminUid, minBet, maxBet e multipliers (array) são obrigatórios' }, { status: 400 });
@@ -12,6 +12,10 @@ export async function POST(req: Request) {
 
     if (minBet <= 0 || maxBet <= minBet) {
       return NextResponse.json({ error: 'Limites de aposta inválidos' }, { status: 400 });
+    }
+
+    if (Number(bonusRolloverMultiplier) < 1) {
+      return NextResponse.json({ error: 'Rollover do bonus deve ser pelo menos 1x' }, { status: 400 });
     }
 
     // Verificar soma dos pesos (weights)
@@ -34,6 +38,7 @@ export async function POST(req: Request) {
       // Atualizar configurações
       dbData.settings.minBet = minBet;
       dbData.settings.maxBet = maxBet;
+      (dbData.settings as any).bonusRolloverMultiplier = Number(bonusRolloverMultiplier);
       dbData.multipliers = multipliers.map(m => ({
         value: Number(m.value),
         label: m.label || `${m.value}x`,
@@ -76,6 +81,7 @@ export async function POST(req: Request) {
       transaction.set(settingsDocRef, {
         minBet,
         maxBet,
+        bonusRolloverMultiplier: Number(bonusRolloverMultiplier),
         updatedAt
       }, { merge: true });
 

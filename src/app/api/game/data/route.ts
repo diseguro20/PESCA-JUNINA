@@ -80,7 +80,7 @@ export async function GET(req: Request) {
         withdrawals,
         rankings,
         multipliers: dbData.multipliers,
-        settings: dbData.settings
+        settings: { ...dbData.settings, bonusRolloverMultiplier: (dbData.settings as any).bonusRolloverMultiplier || 2 }
       };
 
       // Se for administrador, adicionar logs e lista completa de usuários
@@ -147,6 +147,7 @@ export async function GET(req: Request) {
     // Buscar Multiplicadores e Configurações
     const settingsDoc = await adminDb.collection('settings').doc('game').get();
     const settings = settingsDoc.exists ? settingsDoc.data() : { minBet: 1.00, maxBet: 500.00 };
+    settings.bonusRolloverMultiplier = settings.bonusRolloverMultiplier || 2;
 
     const multSnap = await adminDb.collection('multipliers').orderBy('value', 'asc').get();
     const multipliers = multSnap.docs.map((doc: any) => doc.data());

@@ -47,8 +47,14 @@ export async function POST(req: Request) {
       }
 
       const wallet = dbData.wallets[uid];
-      if (!wallet || wallet.balance < amount) {
-        return NextResponse.json({ error: 'Saldo disponível insuficiente!' }, { status: 400 });
+      const bonusLockedAmount = (wallet as any)?.bonusLockedAmount || 0;
+      const withdrawableBalance = Number(((wallet?.balance || 0) - bonusLockedAmount).toFixed(2));
+      if (!wallet || withdrawableBalance < amount) {
+        return NextResponse.json({
+          error: bonusLockedAmount > 0
+            ? `Saldo em bonus ainda bloqueado por rollover. Disponivel para saque: R$ ${Math.max(0, withdrawableBalance).toFixed(2)}.`
+            : 'Saldo disponível insuficiente!'
+        }, { status: 400 });
       }
 
       // Bloquear o saldo
@@ -105,8 +111,13 @@ export async function POST(req: Request) {
       }
       const wallet = walletSnap.data()!;
 
-      if (wallet.balance < amount) {
-        throw new Error('Saldo disponível insuficiente!');
+      const bonusLockedAmount = wallet.bonusLockedAmount || 0;
+      const withdrawableBalance = Number(((wallet.balance || 0) - bonusLockedAmount).toFixed(2));
+
+      if (withdrawableBalance < amount) {
+        throw new Error(bonusLockedAmount > 0
+          ? `Saldo em bonus ainda bloqueado por rollover. Disponivel para saque: R$ ${Math.max(0, withdrawableBalance).toFixed(2)}.`
+          : 'Saldo disponível insuficiente!');
       }
 
       // 3. Atualizar carteira (bloqueando saldo do saque)

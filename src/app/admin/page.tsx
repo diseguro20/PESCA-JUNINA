@@ -107,6 +107,7 @@ export default function AdminPage() {
   // Estados de Configuração do Jogo
   const [minBetInput, setMinBetInput] = useState('1.00');
   const [maxBetInput, setMaxBetInput] = useState('500.00');
+  const [bonusRolloverInput, setBonusRolloverInput] = useState('2');
   const [multipliersList, setMultipliersList] = useState<Multiplier[]>([]);
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -128,6 +129,7 @@ export default function AdminPage() {
         setAdminData(data);
         setMinBetInput(String(data.settings?.minBet || 1.00));
         setMaxBetInput(String(data.settings?.maxBet || 500.00));
+        setBonusRolloverInput(String(data.settings?.bonusRolloverMultiplier || 2));
         setMultipliersList(data.multipliers || []);
       } else {
         setErrorMsg("Erro ao carregar dados do painel admin.");
@@ -235,15 +237,16 @@ export default function AdminPage() {
     
     const minVal = parseFloat(minBetInput);
     const maxVal = parseFloat(maxBetInput);
+    const rolloverVal = parseFloat(bonusRolloverInput);
 
-    if (isNaN(minVal) || isNaN(maxVal) || minVal <= 0 || maxVal <= minVal) {
+    if (isNaN(minVal) || isNaN(maxVal) || minVal <= 0 || maxVal <= minVal || isNaN(rolloverVal) || rolloverVal < 1) {
       setErrorMsg("Limites de aposta inválidos.");
       setSavingSettings(false);
       return;
     }
 
     try {
-      await updateGameSettings(minVal, maxVal, multipliersList);
+      await updateGameSettings(minVal, maxVal, multipliersList, rolloverVal);
       setSuccessMsg("Configurações do lago junino atualizadas com sucesso!");
       loadAdminData();
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -267,6 +270,16 @@ export default function AdminPage() {
 
   // Filtragem rápida de dados locais
   const pendingDeposits = adminData?.allDeposits?.filter((d: any) => d.status === 'pending') || [];
+  const autoConfirmedDeposits = [...(adminData?.allDeposits || [])]
+    .filter((d: any) =>
+      (d.status === 'approved' || d.status === 'paid') &&
+      (d.autoConfirmed || d.gatewayStatus || d.paidAt || d.gatewayPaymentId || d.gatewayTransactionId)
+    )
+    .sort((a: any, b: any) => {
+      const aTime = new Date(a.paidAt || a.updatedAt || a.createdAt || 0).getTime();
+      const bTime = new Date(b.paidAt || b.updatedAt || b.createdAt || 0).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    });
   const pendingWithdrawals = adminData?.allWithdrawals?.filter((w: any) => w.status === 'pending') || [];
   const allUsers = [...(adminData?.users || [])].sort((a: any, b: any) => {
     const aTime = new Date(a.createdAt || 0).getTime();
@@ -440,6 +453,57 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
+
+          <div className="glass-premium rounded-3xl overflow-hidden border border-white/5 shadow-xl mt-5">
+            <div className="px-6 py-4 bg-junina-blue-deep/50 border-b border-white/5 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-white uppercase tracking-wider">Depósitos confirmados automaticamente</span>
+                <span className="text-[10px] text-gray-400">Pix pagos e creditados pelo webhook da Vizzion Pay.</span>
+              </div>
+              <span className="text-xs font-black text-junina-green">{autoConfirmedDeposits.length} confirmado(s)</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-junina-blue-deep/60 text-[10px] font-black uppercase text-gray-400 tracking-wider border-b border-white/5">
+                    <th className="py-4 px-6">Jogador</th>
+                    <th className="py-4 px-6">Pago</th>
+                    <th className="py-4 px-6">Bônus</th>
+                    <th className="py-4 px-6">Creditado</th>
+                    <th className="py-4 px-6">Confirmado em</th>
+                    <th className="py-4 px-6">Gateway</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-xs">
+                  {autoConfirmedDeposits.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-500 italic">Nenhum Pix confirmado automaticamente ainda.</td>
+                    </tr>
+                  ) : (
+                    autoConfirmedDeposits.map((dep: any) => (
+                      <tr key={dep.id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-6 flex flex-col">
+                          <span className="font-extrabold text-white">{dep.email}</span>
+                          <span className="text-[10px] text-gray-500 font-mono">UID: {dep.uid?.substring(0, 8)}...</span>
+                        </td>
+                        <td className="py-4 px-6 font-black text-junina-green">R$ {(dep.amount || 0).toFixed(2)}</td>
+                        <td className="py-4 px-6 font-black text-junina-gold">R$ {(dep.bonusAmount || 0).toFixed(2)}</td>
+                        <td className="py-4 px-6 font-black text-white">R$ {(dep.creditedAmount || dep.amount || 0).toFixed(2)}</td>
+                        <td className="py-4 px-6 text-gray-400">
+                          {new Date(dep.paidAt || dep.updatedAt || dep.createdAt).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-300 border border-green-500/25 text-[9px] font-black uppercase">
+                            {dep.gatewayStatus || 'confirmado'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* ABA: SAQUES */}
@@ -598,7 +662,7 @@ export default function AdminPage() {
           <form onSubmit={handleSaveSettings} className="glass-premium p-6 rounded-3xl flex flex-col gap-6">
             <h3 className="text-lg font-black text-white uppercase tracking-wider">Ajustes das Regras do Lago</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Min Bet */}
               <div className="flex flex-col gap-1.5 text-left">
                 <label className="text-xs font-bold text-gray-300">Aposta Mínima (R$)</label>
@@ -623,6 +687,20 @@ export default function AdminPage() {
                   step="0.01"
                   required
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5 text-left">
+                <label className="text-xs font-bold text-gray-300">Rollover do Bônus (x)</label>
+                <input
+                  type="number"
+                  value={bonusRolloverInput}
+                  onChange={(e) => setBonusRolloverInput(e.target.value)}
+                  className="w-full py-2.5 px-4 bg-junina-blue-deep/60 rounded-xl border border-white/10 text-white text-sm focus:border-junina-gold/50 focus:outline-none"
+                  step="0.1"
+                  min="1"
+                  required
+                />
+                <span className="text-[10px] text-gray-500">Ex: 2x exige apostar 2 vezes o bônus antes de sacar.</span>
               </div>
             </div>
 
