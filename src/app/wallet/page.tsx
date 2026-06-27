@@ -340,9 +340,9 @@ export default function WalletPage() {
 
                     <form onSubmit={handleDepositSubmit} className="flex flex-col gap-4">
                       {firstDepositBonusAvailable && (
-                        <div className="bg-junina-green/10 border border-junina-green/30 p-3.5 rounded-2xl text-left">
-                          <span className="text-[10px] uppercase tracking-widest font-black text-junina-green">Oferta de boas-vindas</span>
-                          <p className="text-sm font-black text-white mt-1">100% de bonus no primeiro deposito</p>
+                        <div className="bg-gradient-to-r from-junina-green/15 via-junina-gold/10 to-junina-orange/15 border border-junina-green/40 p-3.5 rounded-2xl text-left shadow-lg shadow-junina-green/10">
+                          <span className="text-[10px] uppercase tracking-widest font-black text-junina-green">Por tempo limitado</span>
+                          <p className="text-base font-black text-white mt-1">100% de bonus no primeiro deposito</p>
                           <p className="text-xs text-gray-300 mt-1">
                             Deposita R$ {numericDepositAmount > 0 ? numericDepositAmount.toFixed(2) : '5.00'} e recebe R$ {depositCreditPreview > 0 ? depositCreditPreview.toFixed(2) : '10.00'} de saldo.
                           </p>

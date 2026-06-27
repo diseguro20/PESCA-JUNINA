@@ -51,9 +51,9 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-junina-gold/35 bg-junina-gold/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-junina-gold shadow-lg shadow-junina-gold/10">
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-junina-red/40 bg-junina-red/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-junina-gold shadow-lg shadow-junina-red/10 animate-pulse">
           <Zap className="w-4 h-4 fill-junina-gold" />
-          100% de bonus no primeiro deposito
+          Por tempo limitado: 100% de bonus no primeiro deposito
         </div>
 
         {/* CATCHY HEADLINE */}
@@ -71,6 +71,11 @@ export default function Home() {
         <p className="max-w-3xl text-base md:text-xl text-gray-200 font-bold leading-relaxed mb-6 text-shadow">
           Entre na <span className="text-junina-gold font-extrabold">Pesca Online Junina</span>, deposite via Pix e receba o dobro em saldo no primeiro deposito para pescar em poucos segundos.
         </p>
+
+        <div className="w-full max-w-3xl mb-5 rounded-2xl border border-junina-gold/40 bg-gradient-to-r from-junina-red/20 via-junina-gold/10 to-junina-orange/20 px-5 py-4 shadow-xl shadow-junina-gold/10">
+          <p className="text-[11px] font-black uppercase tracking-widest text-junina-gold">Oferta relampago para novos jogadores</p>
+          <p className="mt-1 text-lg md:text-2xl font-black text-white">Deposita R$ 20 e joga com R$ 40 no primeiro Pix.</p>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl mb-8 text-left">
           <div className="border border-white/10 bg-white/[0.04] rounded-2xl px-4 py-3 flex items-center gap-3">

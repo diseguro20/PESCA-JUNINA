@@ -142,7 +142,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </span>
             {firstDepositBonusAvailable && (
               <span className="text-xs font-black text-junina-green bg-junina-green/10 border border-junina-green/30 rounded-xl px-3 py-2">
-                Primeiro deposito: pague R$ {pixResult.amount.toFixed(2)} e receba R$ {(pixResult.amount * 2).toFixed(2)} no saldo.
+                Por tempo limitado: pague R$ {pixResult.amount.toFixed(2)} e receba R$ {(pixResult.amount * 2).toFixed(2)} no saldo.
               </span>
             )}
 
@@ -221,9 +221,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             )}
 
             {firstDepositBonusAvailable && (
-              <div className="bg-junina-green/10 border border-junina-green/30 p-3 rounded-2xl text-left">
-                <span className="text-[10px] uppercase tracking-widest font-black text-junina-green">Oferta de boas-vindas</span>
-                <p className="text-sm font-black text-white mt-1">100% de bonus no primeiro deposito</p>
+              <div className="bg-gradient-to-r from-junina-green/15 via-junina-gold/10 to-junina-orange/15 border border-junina-green/40 p-3 rounded-2xl text-left shadow-lg shadow-junina-green/10">
+                <span className="text-[10px] uppercase tracking-widest font-black text-junina-green">Por tempo limitado</span>
+                <p className="text-base font-black text-white mt-1">100% de bonus no primeiro deposito</p>
                 <p className="text-xs text-gray-300 mt-1">
                   Deposita R$ {numericDepositAmount > 0 ? numericDepositAmount.toFixed(2) : '5.00'} e recebe R$ {creditPreview > 0 ? creditPreview.toFixed(2) : '10.00'} de saldo para pescar.
                 </p>
