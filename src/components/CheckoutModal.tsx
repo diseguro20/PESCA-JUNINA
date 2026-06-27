@@ -13,7 +13,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   betAmount
 }) => {
-  const { createDepositRequest, wallet } = useGame();
+  const { createDepositRequest, deposits, wallet } = useGame();
   const [depositAmount, setDepositAmount] = useState('5'); // Suggested default deposit
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +41,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const numericDepositAmount = Number(depositAmount) || 0;
+  const hasApprovedDeposit = deposits.some((deposit) => deposit.status === 'approved' || deposit.status === 'paid');
+  const firstDepositBonusAvailable = !wallet?.firstDepositBonusApplied && !hasApprovedDeposit;
+  const bonusPreview = firstDepositBonusAvailable ? numericDepositAmount : 0;
+  const creditPreview = numericDepositAmount + bonusPreview;
 
   const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +140,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-junina-gold to-junina-orange">
               R$ {pixResult.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            {firstDepositBonusAvailable && (
+              <span className="text-xs font-black text-junina-green bg-junina-green/10 border border-junina-green/30 rounded-xl px-3 py-2">
+                Primeiro deposito: pague R$ {pixResult.amount.toFixed(2)} e receba R$ {(pixResult.amount * 2).toFixed(2)} no saldo.
+              </span>
+            )}
 
             {pixResult.qrCodeImage && (
               <div className="p-3 bg-white rounded-2xl w-44 h-44 flex items-center justify-center shadow-lg relative">
@@ -209,6 +220,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             )}
 
+            {firstDepositBonusAvailable && (
+              <div className="bg-junina-green/10 border border-junina-green/30 p-3 rounded-2xl text-left">
+                <span className="text-[10px] uppercase tracking-widest font-black text-junina-green">Oferta de boas-vindas</span>
+                <p className="text-sm font-black text-white mt-1">100% de bonus no primeiro deposito</p>
+                <p className="text-xs text-gray-300 mt-1">
+                  Deposita R$ {numericDepositAmount > 0 ? numericDepositAmount.toFixed(2) : '5.00'} e recebe R$ {creditPreview > 0 ? creditPreview.toFixed(2) : '10.00'} de saldo para pescar.
+                </p>
+              </div>
+            )}
+
             {/* Deposit Amount */}
             <div className="flex flex-col gap-1.5 text-left">
               <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Valor do Depósito (Mínimo R$ 5,00)</label>
@@ -229,7 +250,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {/* Value Suggestions */}
             <div className="grid grid-cols-4 gap-2">
-              {['5', '15', '30', '50'].map((val) => (
+              {['5', '20', '50', '100'].map((val) => (
                 <button
                   key={val}
                   type="button"

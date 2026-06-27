@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { verifyDepositStatus } from '../../../../lib/paymentService';
+import { calculateFirstDepositCredit } from '../../../../lib/depositBonus';
 
 type NormalizedDepositWebhook = {
   paymentId: string;
@@ -175,6 +176,20 @@ function amountsMatch(localAmount: number, gatewayAmount?: number): boolean {
   return Math.abs(Number(localAmount) - gatewayAmount) < 0.01;
 }
 
+async function hasPreviousApprovedDeposit(uid: string, currentDepositId?: string): Promise<boolean> {
+  if (!adminDb) {
+    return false;
+  }
+
+  const approvedSnap = await adminDb.collection('deposits')
+    .where('uid', '==', uid)
+    .where('status', 'in', ['approved', 'paid'])
+    .limit(3)
+    .get();
+
+  return approvedSnap.docs.some((doc: any) => doc.id !== currentDepositId);
+}
+
 function extractVerifiedStatus(data: any): string {
   return normalizeStatus(
     data?.status ||
@@ -299,11 +314,23 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
     depositRecord.gatewayStatus = deposit.status;
     depositRecord.paidAt = deposit.paidAt || updatedAt;
     depositRecord.updatedAt = updatedAt;
-    wallet.balance = Number((wallet.balance + depositRecord.amount).toFixed(2));
+    const hasPreviousApproved = dbData.deposits.some(d =>
+      d.uid === depositRecord.uid &&
+      d.id !== depositRecord.id &&
+      (d.status === 'approved' || d.status === 'paid')
+    );
+    const bonusEligible = !hasPreviousApproved && !(wallet as any).firstDepositBonusApplied;
+    const credit = calculateFirstDepositCredit(depositRecord.amount, bonusEligible);
+
+    (depositRecord as any).bonusAmount = credit.bonusAmount;
+    (depositRecord as any).creditedAmount = credit.creditedAmount;
+    (depositRecord as any).firstDepositBonusApplied = credit.bonusApplied;
+    (wallet as any).firstDepositBonusApplied = Boolean((wallet as any).firstDepositBonusApplied || hasPreviousApproved || credit.bonusApplied);
+    wallet.balance = Number((wallet.balance + credit.creditedAmount).toFixed(2));
     wallet.updatedAt = updatedAt;
 
     saveMockDb(dbData);
-    console.log(`[Webhook VizzionPay] [DEMO] Deposito ${depositRecord.id} creditado: R$ ${depositRecord.amount} para ${depositRecord.email}`);
+    console.log(`[Webhook VizzionPay] [DEMO] Deposito ${depositRecord.id} creditado: R$ ${credit.creditedAmount} para ${depositRecord.email}`);
     return NextResponse.json({ success: true, message: 'Deposito creditado com sucesso (Demo)' });
   }
 
@@ -329,6 +356,7 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
   }
 
   const walletRef = adminDb.collection('wallets').doc(match.data.uid);
+  const hasPreviousApproved = await hasPreviousApprovedDeposit(match.data.uid, match.ref.id);
   let alreadyProcessed = false;
 
   try {
@@ -349,17 +377,22 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
       }
 
       const walletSnap = await transaction.get(walletRef);
+      const wallet = walletSnap.exists ? walletSnap.data()! : null;
+      const bonusEligible = !hasPreviousApproved && !wallet?.firstDepositBonusApplied;
+      const credit = calculateFirstDepositCredit(depositData.amount, bonusEligible);
+
       if (!walletSnap.exists) {
         transaction.set(walletRef, {
           uid: depositData.uid,
-          balance: depositData.amount,
+          balance: credit.creditedAmount,
           lockedBalance: 0,
+          firstDepositBonusApplied: credit.bonusApplied || hasPreviousApproved,
           updatedAt
         });
       } else {
-        const wallet = walletSnap.data()!;
         transaction.update(walletRef, {
-          balance: Number((wallet.balance + depositData.amount).toFixed(2)),
+          balance: Number((wallet.balance + credit.creditedAmount).toFixed(2)),
+          firstDepositBonusApplied: Boolean(wallet.firstDepositBonusApplied || hasPreviousApproved || credit.bonusApplied),
           updatedAt
         });
       }
@@ -370,6 +403,9 @@ async function handleDepositWebhook(body: any, hasWebhookToken: boolean) {
         gatewayTransactionId: deposit.gatewayTransactionId || depositData.gatewayTransactionId || null,
         gatewayStatus: deposit.status,
         paidAt: deposit.paidAt || updatedAt,
+        bonusAmount: credit.bonusAmount,
+        creditedAmount: credit.creditedAmount,
+        firstDepositBonusApplied: credit.bonusApplied,
         updatedAt
       });
     });

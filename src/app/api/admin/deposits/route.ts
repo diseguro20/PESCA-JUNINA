@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
+import { calculateFirstDepositCredit } from '../../../../lib/depositBonus';
+
+async function hasPreviousApprovedDeposit(uid: string, currentDepositId?: string): Promise<boolean> {
+  if (!adminDb) {
+    return false;
+  }
+
+  const approvedSnap = await adminDb.collection('deposits')
+    .where('uid', '==', uid)
+    .where('status', 'in', ['approved', 'paid'])
+    .limit(3)
+    .get();
+
+  return approvedSnap.docs.some((doc: any) => doc.id !== currentDepositId);
+}
 
 export async function POST(req: Request) {
   try {
@@ -45,8 +60,20 @@ export async function POST(req: Request) {
 
       // Processar
       if (action === 'approve') {
+        const hasPreviousApproved = dbData.deposits.some(d =>
+          d.uid === deposit.uid &&
+          d.id !== deposit.id &&
+          (d.status === 'approved' || d.status === 'paid')
+        );
+        const bonusEligible = !hasPreviousApproved && !(userWallet as any).firstDepositBonusApplied;
+        const credit = calculateFirstDepositCredit(deposit.amount, bonusEligible);
+
         deposit.status = 'approved';
-        userWallet.balance = Number((userWallet.balance + deposit.amount).toFixed(2));
+        (deposit as any).bonusAmount = credit.bonusAmount;
+        (deposit as any).creditedAmount = credit.creditedAmount;
+        (deposit as any).firstDepositBonusApplied = credit.bonusApplied;
+        (userWallet as any).firstDepositBonusApplied = Boolean((userWallet as any).firstDepositBonusApplied || hasPreviousApproved || credit.bonusApplied);
+        userWallet.balance = Number((userWallet.balance + credit.creditedAmount).toFixed(2));
         userWallet.updatedAt = updatedAt;
       } else {
         deposit.status = 'rejected';
@@ -77,6 +104,11 @@ export async function POST(req: Request) {
     const adminDocRef = adminDb.collection('users').doc(adminUid);
     const depositDocRef = adminDb.collection('deposits').doc(depositId);
 
+    const depositPreviewSnap = action === 'approve' ? await depositDocRef.get() : null;
+    const previousApproved = depositPreviewSnap?.exists
+      ? await hasPreviousApprovedDeposit(depositPreviewSnap.data()!.uid, depositId)
+      : false;
+
     await adminDb.runTransaction(async (transaction: any) => {
       // 1. Validar admin
       const adminSnap = await transaction.get(adminDocRef);
@@ -101,23 +133,31 @@ export async function POST(req: Request) {
 
       // 3. Atualizar status e saldo
       if (action === 'approve') {
+        const walletData = walletSnap.exists ? walletSnap.data()! : null;
+        const bonusEligible = !previousApproved && !walletData?.firstDepositBonusApplied;
+        const credit = calculateFirstDepositCredit(depositData.amount, bonusEligible);
+
         if (!walletSnap.exists) {
           transaction.set(walletDocRef, {
             uid: depositData.uid,
-            balance: depositData.amount,
+            balance: credit.creditedAmount,
             lockedBalance: 0,
+            firstDepositBonusApplied: credit.bonusApplied || previousApproved,
             updatedAt
           });
         } else {
-          const walletData = walletSnap.data()!;
           transaction.update(walletDocRef, {
-            balance: Number((walletData.balance + depositData.amount).toFixed(2)),
+            balance: Number((walletData.balance + credit.creditedAmount).toFixed(2)),
+            firstDepositBonusApplied: Boolean(walletData.firstDepositBonusApplied || previousApproved || credit.bonusApplied),
             updatedAt
           });
         }
 
         transaction.update(depositDocRef, {
           status: 'approved',
+          bonusAmount: credit.bonusAmount,
+          creditedAmount: credit.creditedAmount,
+          firstDepositBonusApplied: credit.bonusApplied,
           updatedAt
         });
       } else {

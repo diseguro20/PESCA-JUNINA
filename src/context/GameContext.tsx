@@ -17,6 +17,7 @@ import { db, isDemoMode } from '../lib/firebase';
 export interface Wallet {
   balance: number;
   lockedBalance: number;
+  firstDepositBonusApplied?: boolean;
   updatedAt: string;
 }
 
@@ -43,6 +44,9 @@ export interface Deposit {
   gatewayTransactionId?: string | null;
   gatewayStatus?: string;
   paidAt?: string | null;
+  bonusAmount?: number;
+  creditedAmount?: number;
+  firstDepositBonusApplied?: boolean;
   qrCodeText?: string;
   qrCodeImage?: string;
   createdAt: string;

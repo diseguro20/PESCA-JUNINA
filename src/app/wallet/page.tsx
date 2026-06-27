@@ -65,6 +65,10 @@ export default function WalletPage() {
 
   const displayBalance = wallet?.balance ?? 0;
   const lockedBalance = wallet?.lockedBalance ?? 0;
+  const hasApprovedDeposit = deposits.some((deposit) => deposit.status === 'approved' || deposit.status === 'paid');
+  const firstDepositBonusAvailable = !wallet?.firstDepositBonusApplied && !hasApprovedDeposit;
+  const numericDepositAmount = Number(depositAmount) || 0;
+  const depositCreditPreview = firstDepositBonusAvailable ? numericDepositAmount * 2 : numericDepositAmount;
 
   // PIX Estático para Simulação
   const mockPixKey = "pix@pescaonlinejunina.com.br";
@@ -335,6 +339,16 @@ export default function WalletPage() {
                     </div>
 
                     <form onSubmit={handleDepositSubmit} className="flex flex-col gap-4">
+                      {firstDepositBonusAvailable && (
+                        <div className="bg-junina-green/10 border border-junina-green/30 p-3.5 rounded-2xl text-left">
+                          <span className="text-[10px] uppercase tracking-widest font-black text-junina-green">Oferta de boas-vindas</span>
+                          <p className="text-sm font-black text-white mt-1">100% de bonus no primeiro deposito</p>
+                          <p className="text-xs text-gray-300 mt-1">
+                            Deposita R$ {numericDepositAmount > 0 ? numericDepositAmount.toFixed(2) : '5.00'} e recebe R$ {depositCreditPreview > 0 ? depositCreditPreview.toFixed(2) : '10.00'} de saldo.
+                          </p>
+                        </div>
+                      )}
+
                       <div className="flex flex-col gap-1.5 text-left">
                         <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Valor do Depósito (R$)</label>
                         <div className="relative">
