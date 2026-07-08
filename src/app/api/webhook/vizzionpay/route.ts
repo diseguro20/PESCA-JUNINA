@@ -604,8 +604,11 @@ async function handleWithdrawalWebhook(body: any) {
             updatedAt
           });
 
+          const isAlreadyApproved = withdrawalData.status === 'approved';
           transaction.update(walletRef, {
-            lockedBalance: Number((wallet.lockedBalance - withdrawalData.amount).toFixed(2)),
+            lockedBalance: isAlreadyApproved
+              ? wallet.lockedBalance
+              : Number((wallet.lockedBalance - withdrawalData.amount).toFixed(2)),
             balance: Number((wallet.balance + withdrawalData.amount).toFixed(2)),
             updatedAt
           });
