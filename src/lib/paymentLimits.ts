@@ -1,4 +1,4 @@
-export const MIN_PIX_WITHDRAWAL_AMOUNT = 20;
+export const MIN_PIX_WITHDRAWAL_AMOUNT = 10;
 
 export function formatCurrencyBR(amount: number): string {
   return amount.toFixed(2).replace('.', ',');

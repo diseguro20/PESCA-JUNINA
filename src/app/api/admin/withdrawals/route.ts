@@ -105,6 +105,10 @@ export async function POST(req: Request) {
     let externalPayoutId = '';
     if (action === 'approve') {
       try {
+        const requesterIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                            req.headers.get('x-real-ip') || 
+                            '179.241.195.127';
+
         const payoutRes = await executePixPayout(
           withdrawalData.amount,
           withdrawalData.pixKey || '',
@@ -112,7 +116,7 @@ export async function POST(req: Request) {
           withdrawalData.recipientDocument || '',
           withdrawalData.pixKeyType || 'aleatory',
           withdrawalId,
-          withdrawalData.requesterIp || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '179.241.195.127'
+          requesterIp
         );
         if (!payoutRes.success) {
           return NextResponse.json({ error: 'A transferência Pix foi rejeitada pela Vizzion Pay.' }, { status: 500 });
