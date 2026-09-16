@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
   signOut, 
   sendPasswordResetEmail,
   updateProfile,
@@ -11,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, isDemoMode } from '../lib/firebase';
+import { OWNER_EMAIL, getPrivateAccessError, isOwnerEmail, normalizeEmail } from '../lib/privateAccess';
 
 export interface UserProfile {
   uid: string;
@@ -43,20 +43,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDemoMode) {
       // Carregar sessão mock do localStorage
       const savedUser = localStorage.getItem('pesca_demo_user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
+      const parsedUser = savedUser ? JSON.parse(savedUser) : null;
+      if (parsedUser && isOwnerEmail(parsedUser.email)) {
+        setUser(parsedUser);
       } else {
-        // Logar usuário padrão para facilitar testes rápidos
-        const defaultUser: UserProfile = {
-          uid: 'user-demo-id',
-          name: 'Chico Bento',
-          email: 'chico@pesca.com',
-          role: 'user',
-          status: 'active',
-          createdAt: new Date().toISOString()
-        };
-        setUser(defaultUser);
-        localStorage.setItem('pesca_demo_user', JSON.stringify(defaultUser));
+        localStorage.removeItem('pesca_demo_user');
+        setUser(null);
       }
       setLoading(false);
       return;
@@ -65,15 +57,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Fluxo Firebase Real
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        if (!isOwnerEmail(firebaseUser.email)) {
+          await signOut(auth);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         setLoading(true);
         // Escutar perfil do usuário no Firestore em tempo real
         const userRef = doc(db, 'users', firebaseUser.uid);
         
         const unsubscribeProfile = onSnapshot(userRef, (docSnapshot) => {
           if (docSnapshot.exists()) {
+            const profileData = docSnapshot.data() as Omit<UserProfile, 'uid'>;
             setUser({
               uid: firebaseUser.uid,
-              ...(docSnapshot.data() as Omit<UserProfile, 'uid'>)
+              ...profileData,
+              role: isOwnerEmail(profileData.email) ? 'admin' : profileData.role,
+              status: isOwnerEmail(profileData.email) ? 'active' : profileData.status
             });
           } else {
             // Se o documento ainda não existir, cria um perfil padrão provisório
@@ -81,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uid: firebaseUser.uid,
               name: firebaseUser.displayName || 'Jogador Junino',
               email: firebaseUser.email || '',
-              role: 'user',
+              role: 'admin',
               status: 'active',
               createdAt: new Date().toISOString()
             };
@@ -114,6 +116,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Login
   const login = async (email: string, password: string) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isOwnerEmail(normalizedEmail)) {
+      throw new Error(getPrivateAccessError());
+    }
+
     if (isDemoMode) {
       setLoading(true);
       // Chamar API mock ou simular
@@ -121,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email: normalizedEmail, password })
         });
         const data = await res.json();
         
@@ -138,18 +145,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Firebase Real
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      if (!isOwnerEmail(userCredential.user.email)) {
+        await signOut(auth);
+        throw new Error(getPrivateAccessError());
+      }
       
       // Esperar leitura do perfil para garantir permissão e existência antes de redirecionar
       const userRef = doc(db, 'users', userCredential.user.uid);
       const userSnap = await getDoc(userRef);
       if (!userSnap.exists()) {
-        throw new Error("Perfil do usuário não encontrado no banco de dados.");
+        const ownerProfile = {
+          name: userCredential.user.displayName || 'diseguro20',
+          email: OWNER_EMAIL,
+          role: 'admin' as const,
+          status: 'active' as const,
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(userRef, ownerProfile);
+        const walletRef = doc(db, 'wallets', userCredential.user.uid);
+        await setDoc(walletRef, {
+          uid: userCredential.user.uid,
+          balance: 0,
+          lockedBalance: 0,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        setUser({ uid: userCredential.user.uid, ...ownerProfile });
+        return;
+      }
+      const profileData = userSnap.data() as Omit<UserProfile, 'uid'>;
+      if (isOwnerEmail(profileData.email) && (profileData.role !== 'admin' || profileData.status !== 'active')) {
+        await setDoc(userRef, { role: 'admin', status: 'active' }, { merge: true });
       }
       
       setUser({
         uid: userCredential.user.uid,
-        ...(userSnap.data() as Omit<UserProfile, 'uid'>)
+        ...profileData,
+        role: isOwnerEmail(profileData.email) ? 'admin' : profileData.role,
+        status: isOwnerEmail(profileData.email) ? 'active' : profileData.status
       });
     } catch (err: any) {
       // Garantir limpeza em caso de erro
@@ -161,53 +194,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Cadastro
-  const signup = async (name: string, email: string, password: string) => {
-    setLoading(true);
-    try {
-      if (isDemoMode) {
-        const res = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password })
-        });
-        const data = await res.json();
-        
-        if (!res.ok) throw new Error(data.error || 'Erro no cadastro');
-        
-        setUser(data.user);
-        localStorage.setItem('pesca_demo_user', JSON.stringify(data.user));
-        return;
-      }
-
-      // Firebase Real
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      
-      await updateProfile(firebaseUser, { displayName: name });
-
-      // O backend inicializará a carteira e o registro via API ou nós salvamos aqui
-      // Para garantir a integridade, criamos o doc do usuário e carteira
-      // (Regras do Firebase devem permitir escrita de criação)
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userRef, {
-        name,
-        email,
-        role: 'user',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      });
-
-      const walletRef = doc(db, 'wallets', firebaseUser.uid);
-      await setDoc(walletRef, {
-        uid: firebaseUser.uid,
-        balance: 0.00, // Começa zerado conforme solicitado
-        lockedBalance: 0.00,
-        updatedAt: new Date().toISOString()
-      });
-
-    } finally {
-      setLoading(false);
-    }
+  const signup = async (_name: string, _email: string, _password: string) => {
+    throw new Error('Cadastro desativado. Use apenas a conta privada ' + OWNER_EMAIL + '.');
   };
 
   // Logout
@@ -222,6 +210,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Recuperação de senha
   const resetPassword = async (email: string) => {
+    if (!isOwnerEmail(email)) {
+      throw new Error(getPrivateAccessError());
+    }
+
     if (isDemoMode) {
       alert("Modo de Demonstração: Link de redefinição de senha simulado para o e-mail: " + email);
       return;

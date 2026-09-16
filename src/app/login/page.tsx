@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { JuninaBackground } from '../../components/JuninaBackground';
-import { Anchor, KeyRound, Mail, AlertTriangle, ArrowLeft, ArrowRight, UserCheck, ShieldCheck } from 'lucide-react';
+import { Anchor, KeyRound, Mail, AlertTriangle, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { OWNER_EMAIL } from '../../lib/privateAccess';
 
 export default function LoginPage() {
   const { user, login, loading } = useAuth();
@@ -41,21 +42,6 @@ export default function LoginPage() {
     }
   };
 
-  // Atalho de login rápido para testes locais
-  const handleFastLogin = async (role: 'user' | 'admin') => {
-    setError(null);
-    setSubmitting(true);
-    const targetEmail = role === 'admin' ? 'admin@pesca.com' : 'chico@pesca.com';
-    try {
-      await login(targetEmail, '123456');
-      router.push('/game');
-    } catch (err: any) {
-      setError(err.message || "Erro no login rápido.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <JuninaBackground>
       <div className="flex-1 w-full flex items-center justify-center p-6 relative z-20">
@@ -69,7 +55,7 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-black text-white text-center mb-1">ENTRAR NA BARRACA</h2>
-          <p className="text-gray-400 text-xs text-center mb-6">Informe seus dados para acessar o lago</p>
+          <p className="text-gray-400 text-xs text-center mb-6">Acesso privado liberado somente para {OWNER_EMAIL}</p>
 
           {/* Banner de erro */}
           {error && (
@@ -127,33 +113,14 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Atalho de teste (Login Rápido) */}
-          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col gap-2.5">
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider text-center">Login de Teste Rápido (Sem Firebase)</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleFastLogin('user')}
-                type="button"
-                className="py-2.5 bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/30 text-blue-300 font-extrabold rounded-xl transition-all text-xs flex items-center justify-center gap-1.5"
-              >
-                <UserCheck className="w-3.5 h-3.5" /> Chico Bento
-              </button>
-              <button
-                onClick={() => handleFastLogin('admin')}
-                type="button"
-                className="py-2.5 bg-junina-red/10 hover:bg-junina-red/15 border border-junina-red/30 text-junina-red font-extrabold rounded-xl transition-all text-xs flex items-center justify-center gap-1.5"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" /> Admin Caipira
-              </button>
-            </div>
+          <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+            <ShieldCheck className="w-4 h-4 text-junina-gold" />
+            Site restrito para uso proprio
           </div>
 
           {/* Links adicionais */}
           <div className="text-center mt-6 text-xs text-gray-400 font-medium">
-            Ainda não tem conta?{' '}
-            <Link href="/signup" className="text-junina-gold font-bold hover:underline">
-              Cadastre-se na Festa!
-            </Link>
+            Cadastros novos estao bloqueados.
           </div>
 
           {/* Botão Voltar */}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
+import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
 
 // Função para sorteio ponderado
 function getWeightedMultiplier(multipliers: any[]) {
@@ -47,6 +48,9 @@ export async function POST(req: Request) {
       const user = dbData.users[uid];
       if (!user) {
         return NextResponse.json({ error: 'Usuário não cadastrado' }, { status: 404 });
+      }
+      if (!isOwnerEmail(user.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
       }
 
       if (user.status !== 'active') {
@@ -159,6 +163,9 @@ export async function POST(req: Request) {
         throw new Error('Usuário não cadastrado');
       }
       const user = userSnap.data()!;
+      if (!isOwnerEmail(user.email)) {
+        throw new Error(getPrivateAccessError());
+      }
       if (user.status !== 'active') {
         throw new Error('Sua conta está bloqueada ou em análise.');
       }

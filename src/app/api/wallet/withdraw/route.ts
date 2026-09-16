@@ -3,6 +3,7 @@ import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { normalizePixKeyForGateway, validateRecipientDocument } from '../../../../lib/paymentService';
 import { MIN_PIX_WITHDRAWAL_AMOUNT, getMinPixWithdrawalMessage } from '../../../../lib/paymentLimits';
+import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
 
 function getRequestIp(req: Request): string {
   const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
@@ -40,6 +41,9 @@ export async function POST(req: Request) {
       const user = dbData.users[uid];
       if (!user) {
         return NextResponse.json({ error: 'Usuário não cadastrado' }, { status: 404 });
+      }
+      if (!isOwnerEmail(user.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
       }
 
       if (user.status !== 'active') {
@@ -100,6 +104,9 @@ export async function POST(req: Request) {
         throw new Error('Usuário não cadastrado');
       }
       const user = userSnap.data()!;
+      if (!isOwnerEmail(user.email)) {
+        throw new Error(getPrivateAccessError());
+      }
       if (user.status !== 'active') {
         throw new Error('Sua conta está bloqueada ou em análise.');
       }

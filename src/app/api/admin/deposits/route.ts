@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { calculateFirstDepositCredit } from '../../../../lib/depositBonus';
+import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
 
 async function hasPreviousApprovedDeposit(uid: string, currentDepositId?: string): Promise<boolean> {
   if (!adminDb) {
@@ -36,6 +37,9 @@ export async function POST(req: Request) {
       const adminUser = dbData.users[adminUid];
       if (!adminUser || adminUser.role !== 'admin') {
         return NextResponse.json({ error: 'Acesso não autorizado!' }, { status: 403 });
+      }
+      if (!isOwnerEmail(adminUser.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
       }
 
       // Localizar depósito
@@ -126,6 +130,9 @@ export async function POST(req: Request) {
         throw new Error('Acesso não autorizado!');
       }
       const adminData = adminSnap.data()!;
+      if (!isOwnerEmail(adminData.email)) {
+        throw new Error(getPrivateAccessError());
+      }
 
       // 2. Verificar depósito
       const depositSnap = await transaction.get(depositDocRef);

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
+import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
 
 export async function POST(req: Request) {
   try {
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
       const adminUser = dbData.users[adminUid];
       if (!adminUser || adminUser.role !== 'admin') {
         return NextResponse.json({ error: 'Acesso não autorizado!' }, { status: 403 });
+      }
+      if (!isOwnerEmail(adminUser.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
       }
 
       // Localizar usuário alvo
@@ -60,6 +64,9 @@ export async function POST(req: Request) {
         throw new Error('Acesso não autorizado!');
       }
       const adminData = adminSnap.data()!;
+      if (!isOwnerEmail(adminData.email)) {
+        throw new Error(getPrivateAccessError());
+      }
 
       // 2. Verificar usuário alvo
       const targetSnap = await transaction.get(targetDocRef);
@@ -108,6 +115,9 @@ export async function PUT(req: Request) {
       if (!user) {
         return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
       }
+      if (!isOwnerEmail(user.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
+      }
       user.name = name;
       saveMockDb(dbData);
       return NextResponse.json({ success: true });
@@ -115,6 +125,14 @@ export async function PUT(req: Request) {
 
     if (!adminDb) {
       return NextResponse.json({ error: 'Serviço Firebase Admin indisponível' }, { status: 500 });
+    }
+
+    const userSnap = await adminDb.collection('users').doc(uid).get();
+    if (!userSnap.exists) {
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    }
+    if (!isOwnerEmail(userSnap.data()?.email)) {
+      return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
     }
 
     await adminDb.collection('users').doc(uid).update({

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb } from '../../../../lib/mockDb';
+import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
 
 function getCreatedAtTime(item: any): number {
   const value = item?.createdAt;
@@ -30,6 +31,9 @@ export async function GET(req: Request) {
       const user = dbData.users[uid];
       if (!user) {
         return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+      }
+      if (!isOwnerEmail(user.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
       }
 
       // Filtrar dados do usuário
@@ -112,6 +116,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
     const userData = userDoc.data()!;
+    if (!isOwnerEmail(userData.email)) {
+      return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
+    }
 
     // Buscar carteira
     const walletDoc = await adminDb.collection('wallets').doc(uid).get();

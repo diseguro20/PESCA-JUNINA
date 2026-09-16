@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { JuninaBackground } from '../components/JuninaBackground';
-import { Anchor, Trophy, Coins, ShieldCheck, Flame, ArrowRight, Zap, WalletCards } from 'lucide-react';
+import { Anchor, Trophy, Coins, ShieldCheck, Flame, ArrowRight, Zap, WalletCards, LockKeyhole } from 'lucide-react';
+import { OWNER_EMAIL } from '../lib/privateAccess';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -53,58 +54,57 @@ export default function Home() {
 
         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-junina-red/40 bg-junina-red/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-junina-gold shadow-lg shadow-junina-red/10 animate-pulse">
           <Zap className="w-4 h-4 fill-junina-gold" />
-          Por tempo limitado: 100% de bonus no primeiro deposito
+          Acesso privado
         </div>
 
         {/* CATCHY HEADLINE */}
         <h1 className="text-4xl md:text-7xl font-black tracking-tight leading-none mb-5 filter drop-shadow-[0_0_20px_rgba(255,209,102,0.35)]">
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-junina-gold via-junina-orange to-junina-red">
-            TENTE SUAS CHANCES E GANHE ATE R$ 10 MIL AGORA
+            PAINEL PRIVADO DE SAQUES
           </span>
         </h1>
 
         <p className="hidden">
-          A clássica pescaria de quermesse brasileira de um jeito premium, moderno e 100% online. 
-          Cadastre-se hoje, <span className="text-junina-gold font-extrabold underline decoration-junina-orange decoration-2">adicione créditos</span> para garantir seus prêmios e comece a pescar no lago caipira!
+          Plataforma privada de controle de carteira, saldo e saques.
         </p>
 
         <p className="max-w-3xl text-base md:text-xl text-gray-200 font-bold leading-relaxed mb-6 text-shadow">
-          Entre na <span className="text-junina-gold font-extrabold">Pesca Online Junina</span>, deposite via Pix e receba o dobro em saldo no primeiro deposito para pescar em poucos segundos.
+          Site restrito somente para a conta <span className="text-junina-gold font-extrabold">{OWNER_EMAIL}</span>. Cadastros novos estao bloqueados.
         </p>
 
         <div className="w-full max-w-3xl mb-5 rounded-2xl border border-junina-gold/40 bg-gradient-to-r from-junina-red/20 via-junina-gold/10 to-junina-orange/20 px-5 py-4 shadow-xl shadow-junina-gold/10">
-          <p className="text-[11px] font-black uppercase tracking-widest text-junina-gold">Oferta relampago para novos jogadores</p>
-          <p className="mt-1 text-lg md:text-2xl font-black text-white">Deposita R$ 20 e joga com R$ 40 no primeiro Pix.</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-junina-gold">Uso exclusivo</p>
+          <p className="mt-1 text-lg md:text-2xl font-black text-white">Acesse apenas para controlar saldo, carteira e saques.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl mb-8 text-left">
           <div className="border border-white/10 bg-white/[0.04] rounded-2xl px-4 py-3 flex items-center gap-3">
             <WalletCards className="w-5 h-5 text-junina-green shrink-0" />
-            <span className="text-xs font-extrabold text-white">Primeiro Pix em dobro</span>
+            <span className="text-xs font-extrabold text-white">Conta privada</span>
           </div>
           <div className="border border-white/10 bg-white/[0.04] rounded-2xl px-4 py-3 flex items-center gap-3">
             <Trophy className="w-5 h-5 text-junina-gold shrink-0" />
-            <span className="text-xs font-extrabold text-white">Premios direto no saldo</span>
+            <span className="text-xs font-extrabold text-white">Controle de saldo</span>
           </div>
           <div className="border border-white/10 bg-white/[0.04] rounded-2xl px-4 py-3 flex items-center gap-3">
             <Flame className="w-5 h-5 text-junina-orange shrink-0" />
-            <span className="text-xs font-extrabold text-white">Comece com R$ 5</span>
+            <span className="text-xs font-extrabold text-white">Saques protegidos</span>
           </div>
         </div>
 
         {/* BOTÕES DE CHAMADA DE AÇÃO (CTA) */}
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xl mb-16 justify-center relative z-30">
           <Link
-            href="/signup"
+            href="/login"
             className="flex-1 py-4 bg-gradient-to-r from-junina-orange via-junina-gold to-junina-orange text-junina-wood-dark font-black rounded-2xl shadow-xl hover:shadow-junina-gold/30 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm md:text-base neon-border-gold cursor-pointer"
           >
-            CRIAR CONTA E DEPOSITAR <ArrowRight className="w-5 h-5" />
+            ENTRAR NA CONTA PRIVADA <ArrowRight className="w-5 h-5" />
           </Link>
           <Link
             href="/login"
             className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white font-black rounded-2xl border border-white/10 transition-all flex items-center justify-center gap-2 text-sm md:text-base cursor-pointer"
           >
-            ENTRAR NA QUERMESSE
+            <LockKeyhole className="w-5 h-5" /> ACESSO RESTRITO
           </Link>
         </div>
 

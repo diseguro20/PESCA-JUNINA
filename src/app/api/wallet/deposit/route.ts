@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { createPixCharge } from '../../../../lib/paymentService';
+import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +23,9 @@ export async function POST(req: Request) {
       const user = dbData.users[uid];
       if (!user) {
         return NextResponse.json({ error: 'Usuário não cadastrado' }, { status: 404 });
+      }
+      if (!isOwnerEmail(user.email)) {
+        return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
       }
 
       // Gerar cobrança Pix (Simulada no Modo Demo)
@@ -60,6 +64,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Usuário não cadastrado' }, { status: 404 });
     }
     const user = userSnap.data()!;
+    if (!isOwnerEmail(user.email)) {
+      return NextResponse.json({ error: getPrivateAccessError() }, { status: 403 });
+    }
 
     // Gerar cobrança Pix (Real via Proxy ou simulada se variáveis não estiverem setadas)
     const pixData = await createPixCharge(amount, user.name, user.email);
