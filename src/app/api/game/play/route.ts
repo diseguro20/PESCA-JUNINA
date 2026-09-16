@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 // Função para sorteio ponderado
 function getWeightedMultiplier(multipliers: any[]) {
@@ -36,6 +37,8 @@ export async function POST(req: Request) {
     if (!uid || betAmount === undefined) {
       return NextResponse.json({ error: 'Campos uid e betAmount são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, uid);
 
     if (betAmount <= 0) {
       return NextResponse.json({ error: 'O valor da aposta deve ser maior que zero' }, { status: 400 });

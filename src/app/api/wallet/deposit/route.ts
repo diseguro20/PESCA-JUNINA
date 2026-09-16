@@ -3,6 +3,7 @@ import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { createPixCharge } from '../../../../lib/paymentService';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,8 @@ export async function POST(req: Request) {
     if (!uid || amount === undefined) {
       return NextResponse.json({ error: 'Campos uid e amount são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, uid);
 
     if (amount < 5) {
       return NextResponse.json({ error: 'O valor mínimo do depósito é de R$ 5,00' }, { status: 400 });

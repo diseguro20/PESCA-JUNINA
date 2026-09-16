@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb } from '../../../../lib/mockDb';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 function getCreatedAtTime(item: any): number {
   const value = item?.createdAt;
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
     if (!uid) {
       return NextResponse.json({ error: 'Parâmetro uid é obrigatório' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, uid);
 
     if (isAdminDemoMode) {
       const dbData = getMockDb();

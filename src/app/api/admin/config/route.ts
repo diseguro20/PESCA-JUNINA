@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,8 @@ export async function POST(req: Request) {
     if (!adminUid || minBet === undefined || maxBet === undefined || !multipliers || !Array.isArray(multipliers)) {
       return NextResponse.json({ error: 'Campos adminUid, minBet, maxBet e multipliers (array) são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, adminUid);
 
     if (minBet <= 0 || maxBet <= minBet) {
       return NextResponse.json({ error: 'Limites de aposta inválidos' }, { status: 400 });

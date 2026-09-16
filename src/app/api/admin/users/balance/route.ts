@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../../lib/mockDb';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../../lib/ownerAuth';
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,8 @@ export async function POST(req: Request) {
     if (!adminUid || !targetUid || amount === undefined || isNaN(Number(amount)) || Number(amount) <= 0 || !['add', 'subtract'].includes(type)) {
       return NextResponse.json({ error: 'Campos adminUid, targetUid, um valor positivo para amount e um type válido ("add" ou "subtract") são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, adminUid);
 
     const valueToChange = Number(Number(amount).toFixed(2));
     const finalChange = type === 'subtract' ? -valueToChange : valueToChange;

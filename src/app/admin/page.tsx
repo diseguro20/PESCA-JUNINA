@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGame, Multiplier } from '../../context/GameContext';
 import { JuninaBackground } from '../../components/JuninaBackground';
 import { HeaderHUD } from '../../components/HeaderHUD';
+import { getOwnerRequestHeaders } from '../../lib/clientAuthHeaders';
 import { 
   ShieldAlert, 
   Users, 
@@ -78,7 +79,7 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/admin/users/balance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getOwnerRequestHeaders(user.uid),
         body: JSON.stringify({
           adminUid: user.uid,
           targetUid: selectedBalanceUser.uid,
@@ -123,7 +124,9 @@ export default function AdminPage() {
     if (!user || user.role !== 'admin') return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/game/data?uid=${user.uid}`);
+      const res = await fetch(`/api/game/data?uid=${user.uid}`, {
+        headers: await getOwnerRequestHeaders(user.uid)
+      });
       if (res.ok) {
         const data = await res.json();
         setAdminData(data);

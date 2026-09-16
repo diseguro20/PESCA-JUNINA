@@ -4,6 +4,7 @@ import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { normalizePixKeyForGateway, validateRecipientDocument } from '../../../../lib/paymentService';
 import { MIN_PIX_WITHDRAWAL_AMOUNT, getMinPixWithdrawalMessage } from '../../../../lib/paymentLimits';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 function getRequestIp(req: Request): string {
   const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
     if (!uid || amount === undefined || !pixKey || !pixKeyType || !recipientName || !recipientDocument) {
       return NextResponse.json({ error: 'Campos uid, amount, pixKey, pixKeyType, recipientName e recipientDocument são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, uid);
 
     if (amount <= 0) {
       return NextResponse.json({ error: 'O valor do saque deve ser maior que zero' }, { status: 400 });

@@ -11,6 +11,7 @@ import {
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, isDemoMode } from '../lib/firebase';
 import { OWNER_EMAIL, getPrivateAccessError, isOwnerEmail, normalizeEmail } from '../lib/privateAccess';
+import { getOwnerRequestHeaders } from '../lib/clientAuthHeaders';
 
 export interface UserProfile {
   uid: string;
@@ -233,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Atualizar também no mockDb do servidor
       await fetch('/api/admin/users', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getOwnerRequestHeaders(user.uid),
         body: JSON.stringify({ uid: user.uid, name: newName })
       });
       return;

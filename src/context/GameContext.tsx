@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 import { db, isDemoMode } from '../lib/firebase';
+import { getOwnerRequestHeaders } from '../lib/clientAuthHeaders';
 
 export interface Wallet {
   balance: number;
@@ -143,7 +144,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshAllData = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/game/data?uid=${user.uid}`);
+      const res = await fetch(`/api/game/data?uid=${user.uid}`, {
+        headers: await getOwnerRequestHeaders(user.uid)
+      });
       if (res.ok) {
         const data = await res.json();
         setWallet(data.wallet);
@@ -353,7 +356,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const res = await fetch('/api/game/play', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getOwnerRequestHeaders(user.uid),
         body: JSON.stringify({ uid: user.uid, betAmount })
       });
 
@@ -381,7 +384,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/wallet/deposit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ uid: user.uid, amount, receiptUrl })
     });
 
@@ -408,7 +411,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/wallet/withdraw', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ 
         uid: user.uid, 
         amount, 
@@ -433,7 +436,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/admin/deposits', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ adminUid: user.uid, depositId, action: 'approve' })
     });
 
@@ -451,7 +454,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/admin/deposits', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ adminUid: user.uid, depositId, action: 'reject' })
     });
 
@@ -469,7 +472,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/admin/withdrawals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ adminUid: user.uid, withdrawalId, action: 'approve' })
     });
 
@@ -487,7 +490,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/admin/withdrawals', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ adminUid: user.uid, withdrawalId, action: 'reject' })
     });
 
@@ -506,7 +509,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/admin/users', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ 
         adminUid: user.uid, 
         targetUid, 
@@ -528,7 +531,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const res = await fetch('/api/admin/config', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getOwnerRequestHeaders(user.uid),
       body: JSON.stringify({ 
         adminUid: user.uid, 
         minBet: newMin, 

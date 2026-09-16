@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,8 @@ export async function POST(req: Request) {
     if (!adminUid || !targetUid || !status || !['active', 'blocked', 'review'].includes(status)) {
       return NextResponse.json({ error: 'Campos adminUid, targetUid e status ("active", "blocked", "review") são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, adminUid);
 
     const updatedAt = new Date().toISOString();
 
@@ -108,6 +111,8 @@ export async function PUT(req: Request) {
     if (!uid || !name) {
       return NextResponse.json({ error: 'Campos uid e name são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, uid);
 
     if (isAdminDemoMode) {
       const dbData = getMockDb();

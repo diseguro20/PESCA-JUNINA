@@ -3,6 +3,7 @@ import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { calculateFirstDepositCredit } from '../../../../lib/depositBonus';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 async function hasPreviousApprovedDeposit(uid: string, currentDepositId?: string): Promise<boolean> {
   if (!adminDb) {
@@ -27,6 +28,8 @@ export async function POST(req: Request) {
     if (!adminUid || !depositId || !action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Campos adminUid, depositId e action ("approve" ou "reject") são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, adminUid);
 
     const updatedAt = new Date().toISOString();
 

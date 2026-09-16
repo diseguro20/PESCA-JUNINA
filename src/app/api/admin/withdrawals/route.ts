@@ -3,6 +3,7 @@ import { isAdminDemoMode, adminDb } from '../../../../lib/firebaseAdmin';
 import { getMockDb, saveMockDb } from '../../../../lib/mockDb';
 import { executePixPayout } from '../../../../lib/paymentService';
 import { getPrivateAccessError, isOwnerEmail } from '../../../../lib/privateAccess';
+import { requireOwnerRequest } from '../../../../lib/ownerAuth';
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,8 @@ export async function POST(req: Request) {
     if (!adminUid || !withdrawalId || !action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Campos adminUid, withdrawalId e action ("approve" ou "reject") são obrigatórios' }, { status: 400 });
     }
+
+    await requireOwnerRequest(req, adminUid);
 
     const updatedAt = new Date().toISOString();
 
